@@ -1,1 +1,3 @@
-# Rust-Todo
+# todo-rs
+
+A CLI Todo List
