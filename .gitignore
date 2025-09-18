@@ -22,3 +22,5 @@ target
 
 .envrc
 .direnv/**
+
+**/.todo
