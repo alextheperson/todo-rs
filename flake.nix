@@ -1,5 +1,5 @@
 {
-  description = "Rest Dev Environment";
+  description = "Rust Dev Environment";
 
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
