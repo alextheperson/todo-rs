@@ -19,13 +19,13 @@ It creates a file called `.todo`. Inside, the syntax is basically markdown. Here
 ```
 # Test Todo
 
-- [ ] - 4 -- Item 1
-- [ ] - 3 - 12/13/2025 - Item 2
-- [x] - 6 -- Checked item
- - [x] --- Checked sub-item 1
- - [x] --- Checked sub-item 2
-  - [x] --- Checked sub-sub-item
- - [x] --- Checked sub-item 3
-- [ ] --- Item 3
-- [ ] --- Item 4
+- [ ] \4\\ Item 1
+- [ ] \3\15/10/2025\ Item 2
+- [x] \6\\ Checked item
+ - [x] \0\\ Checked sub-item 1
+ - [x] \0\\ Checked sub-item 2
+  - [x] \-10\\ Checked sub-sub-item
+ - [x] \0\\ Checked sub-item 3
+- [ ] \7\24/12/2027\ Item 3
+- [ ] \0\\ Item 4
 ```
