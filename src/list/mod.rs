@@ -8,10 +8,13 @@ use list_types::{
 
 use display_list::format_list;
 
-pub fn parse_list(content: String) {
+pub fn parse_list(path: std::path::PathBuf) {
+    let content = std::fs::read_to_string(&path)
+        .expect("should have been able to read the file {path}");
+
     let lines = content.lines();
 
-    let name = lines.clone().nth(0).expect("Invalid '.todo'. Expected title.").get(2..).unwrap();
+    let name = lines.clone().nth(0).expect("expected title in {path}").get(2..).unwrap();
 
     let mut remaining_lines = lines.clone();
     remaining_lines.nth(1);
@@ -20,7 +23,7 @@ pub fn parse_list(content: String) {
     println!("{}", format_list(List{
         name: name.to_string(),
         items: items
-    }));
+    }, path));
 }
 
 /// This parses the actual items from a list, ignoring the title, etc.
@@ -61,11 +64,31 @@ fn parse_items(content: std::str::Lines, depth: u8) -> Vec<Item> {
 
         let mut sections = line.split("\\");
 
-        let completed = &sections.next().unwrap().trim_start()[3..4] == "x";
-        let priority: i16 = sections.next().unwrap_or("0").trim().parse().unwrap_or(0);
-        let date = sections.next().unwrap().trim().to_string();
-        // TODO: Join the rest of the sections with '-'
-        let name = sections.next().unwrap().trim().to_string();
+        let completed = &sections.next().unwrap_or("- [ ]").trim_start()[3..4] == "x";
+
+
+        let has_priority_value = sections.clone().next().unwrap_or("").parse::<i16>().is_ok();
+        let priority: i16 = if has_priority_value {
+            sections.next().unwrap_or("0").trim().parse().unwrap_or(0)
+        } else {
+            0
+        };
+
+        let has_date_value = (sections.clone().count() > 1) && sections.clone().next().is_some();
+        let date = if has_date_value {
+            sections.next().unwrap_or("").trim().to_string()
+        } else {
+            "".to_string()
+        };
+
+        println!("{} {} {} {} {:?}", has_priority_value, has_date_value, priority, date, sections.clone().count());
+
+        // TODO: Join the rest of the sections with '\' in case they have one in the name
+        let name = if has_date_value || has_priority_value {
+            sections.next().unwrap_or("Unnamed").trim().to_string()
+        } else {
+            line.trim_start()[6..].to_string()
+        };
 
         sub_items.sort_by(|a, b| b.priority.cmp(&a.priority));
 

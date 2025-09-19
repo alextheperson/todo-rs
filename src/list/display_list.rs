@@ -3,12 +3,12 @@ use crate::list::list_types::{
     Item
 };
 
-pub fn format_list(list: List) -> String {
+pub fn format_list(list: List, path: std::path::PathBuf) -> String {
     let mut output = String::new();
 
-    output += &format!("# {}\n", list.name)[..];
-    output += "\n";
-    output += &format!("{}", format_item_vec(list.items.clone(), 0))[..];
+    output += &format!("╭ # {} ({})\n", list.name, path.as_path().display())[..];
+    output += "│\n";
+    output += &format!("{}", format_item_vec(list.items.clone(), 1))[..];
 
     output
 }
