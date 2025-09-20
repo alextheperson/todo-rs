@@ -1,29 +1,24 @@
-pub mod list_types;
-mod display_list;
+pub mod search;
+pub mod format;
+pub mod save;
 
-use list_types::{
-    Item,
-    List
-};
-
-use display_list::format_list;
-
-pub fn parse_list(path: std::path::PathBuf) {
+pub fn parse_list(path: std::path::PathBuf) -> List{
     let content = std::fs::read_to_string(&path)
         .expect("should have been able to read the file {path}");
 
     let lines = content.lines();
 
-    let name = lines.clone().nth(0).expect("expected title in {path}").get(2..).unwrap();
+    let name = lines.clone().nth(0).expect("expected title in {path}").get(1..).unwrap().to_string();
 
     let mut remaining_lines = lines.clone();
     remaining_lines.nth(1);
     let items = parse_items(remaining_lines, 0);
 
-    println!("{}", format_list(List{
-        name: name.to_string(),
+    List{
+        name: name,
+        path: path,
         items: items
-    }, path));
+    }
 }
 
 /// This parses the actual items from a list, ignoring the title, etc.
@@ -81,8 +76,6 @@ fn parse_items(content: std::str::Lines, depth: u8) -> Vec<Item> {
             "".to_string()
         };
 
-        println!("{} {} {} {} {:?}", has_priority_value, has_date_value, priority, date, sections.clone().count());
-
         // TODO: Join the rest of the sections with '\' in case they have one in the name
         let name = if has_date_value || has_priority_value {
             sections.next().unwrap_or("Unnamed").trim().to_string()
@@ -105,4 +98,20 @@ fn parse_items(content: std::str::Lines, depth: u8) -> Vec<Item> {
 
     items.sort_by(|a, b| b.priority.cmp(&a.priority));
     items
+}
+
+#[derive(Debug, Clone)]
+pub struct Item {
+    pub completed: bool,
+    pub priority: i16,
+    pub date: String,
+    pub name: String,
+    pub items: Vec<Item>,
+}
+
+#[derive(Debug, Clone)]
+pub struct List {
+    pub name: String,
+    pub path: std::path::PathBuf,
+    pub items: Vec<Item>
 }

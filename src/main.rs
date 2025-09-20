@@ -6,19 +6,20 @@ fn main() {
     let cmd = std::env::args().nth(1).unwrap_or(String::from(""));
 
     match &cmd[..] {
-        "new" => new(std::env::args().skip(2)),
+        "new" => new(&mut std::env::args().skip(2)),
         "list" =>  list(std::env::args().skip(2)),
-        "add" => println!("add"),
+        "add" =>  print!("add"),
         "remove" => println!("remove"),
-        "complete" => println!("complete"),
+        "complete" => complete(&mut std::env::args().skip(2)),
+        "toggle" => toggle(&mut std::env::args().skip(2)),
         "" => println!("enter"),
         _ => println!("Command '{}' not found", cmd),
     }
 }
 
 /// Create a .todo file in the current directory. Add the -f flag to overwrite an existing .todo file.
-fn new (args: std::iter::Skip<std::env::Args>) {
-    if fs::exists("./.todo").unwrap_or(false) && args.take(1).nth(0).unwrap_or(String::new()) != "-f" {
+fn new (args: &mut std::iter::Skip<std::env::Args>) {
+    if fs::exists("./.todo").unwrap_or(false) && args.next().unwrap_or(String::new()) != "-f" {
         println!("'.todo' already exists.");
     } else {
         fs::write("./.todo", "# New Todo\n\n").expect("'.todo' could not be created");
@@ -31,6 +32,36 @@ fn list (_args: std::iter::Skip<std::env::Args>) {
     let paths = search_paths::search_up();
 
     for path in paths {
-        list::parse_list(path);
+        println!("{}", list::format::format_list(list::parse_list(path.clone()), path));
+    }
+}
+
+fn complete (args: &mut std::iter::Skip<std::env::Args>) {
+    let prefix = args.next().unwrap_or(String::new());
+    let paths = search_paths::search_up();
+
+    for path in paths {
+        let mut list = list::parse_list(path.clone());
+        let found = list::search::complete_item(&mut list.items, prefix.clone());
+    
+        if found {
+            list::save::save_list(list.clone());
+            println!("Marked '{name}*' as complete", name = prefix);
+        }
+    }
+}
+
+fn toggle (args: &mut std::iter::Skip<std::env::Args>) {
+    let prefix = args.next().unwrap_or(String::new());
+    let paths = search_paths::search_up();
+
+    for path in paths {
+        let mut list = list::parse_list(path.clone());
+        let found = list::search::toggle_item(&mut list.items, prefix.clone());
+    
+        if found {
+            list::save::save_list(list.clone());
+            println!("Toggeled the completion of '{name}*'", name = prefix);
+        }
     }
 }

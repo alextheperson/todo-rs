@@ -3,4 +3,9 @@ name = "todo-rs"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+edition = "2024"
+name = "todo"
+path = "src/main.rs"
+
 [dependencies]
