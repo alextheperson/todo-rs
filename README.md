@@ -1,31 +1,112 @@
 # todo-rs
 
-A CLI Todo List
+`todo-rs` is a CLI todo list written in Rust.
+
+## Features
+**Human Readable** - All of your todo items are stored in `.todo` files in a fully human readable and manually editable format.
+
+**Scoped** - `todo-rs` will search up though your file system to find `.todo` files. This lets you have both user-wide and project-specific todo lists.
+
+**Priority** - It will sort your items based on what priorty you give them.
+
+## Installation
+### Flake (NixOS + Home Manager)
+First, add `todo-rs` to your flake inputs:
+```nix
+
+{
+  inputs = {
+    # ...
+    todo-rs = "github:alextheperson/todo-rs";
+    inputs.nixpkgs.follows = "nixpkgs";
+    # ...
+  }
+  # ...
+}
 ```
-□ Task 1
-▣ Task 2
-├ ▣ Task 3
-╰ □ Task 4
+
+Then you need to pass it to your HM config, likely with something like this:
+```nix
+
+  # /etc/nixos/flake.nix
+  # ...
+  outputs = inputs@{ self, nixpkgs, home-manager, todo-rs, ... }: {
+    # ...
+    home-manager.extraSpecialArgs = { inherit todo-rs; };
+  }
 ```
 
-## Commands
-`todo new` - Create a new todo list in the current directory
+and
 
-`todo add` - Add an item to the active todo list
+```nix
+{ config, pkgs, todo-rs, ... }:
+```
 
-## File
-It creates a file called `.todo`. Inside, the syntax is basically markdown. Here is an example file.
+Finally, you need to add it to you package list:
+```nix
+
+home.packages = with pkgs; [
+  # ...
+] ++ [
+  todo-rs.packages.aarch64-linux.default
+]
+```
+
+## Usage
+### Basic Usage
+To use `todo-rs`, use the `todo` command. For example, `$ todo list` will list all of you todo items from the current directory and all of its parent directories (up to your home directory).
+
+To create a new todo list in the current directory, use `$ todo new`.
+
+You can add an item with `$ todo add "#todo list" "new item"`.
+
+Mark items as complete or toggle their completion with the `todo complete "item name"` or `todo toggle "item name"` commands respectively.
+
+### Advanced usage
+There isn't much room for advanced usage yet, but here are some extra things that you might want to know.
+
+Generally, the names of todo lists are prefixed with a `#` (`#todo list`), you can use this syntax in commands, though currently none of them react differently, apart from removing the prefix before parsing the name.
+
+`todo-rs` supports nested items. If you want to point a command to a nested item, just use slashes (eg `item/sub item/really nested`).
+
+## `.todo` File Syntax
+The syntax of the `.todo` files is very simple. The first line is a # followed by the name of the list, then followed by a newline:
 
 ```
-# Test Todo
+# Todo List
 
-- [ ] \4\\ Item 1
-- [ ] \3\15/10/2025\ Item 2
-- [x] \6\\ Checked item
- - [x] \0\\ Checked sub-item 1
- - [x] \0\\ Checked sub-item 2
-  - [x] \-10\\ Checked sub-sub-item
- - [x] \0\\ Checked sub-item 3
-- [ ] \7\24/12/2027\ Item 3
-- [ ] \0\\ Item 4
+{{items}}
 ```
+
+For the actual items. they use `- [ ]` and `- [x]` to represent their completion status, like in some flavors of Markdown. After that they (optionally) have a priority number and/or date, delimited by backslashes. Finally, nested items are represented with indentation. An example file might look like this:
+
+```
+# Example Todo List
+
+- [ ] \2\6/13/2026\ Replant the garden
+- [ ] \5\ Fix the broken thing
+ - [ ] Research seeds
+- [x] \4\ Mount the shelf
+```
+
+This will render out as:
+
+```
+╭ #  Example Todo List (/path/to/list/.todo)
+│
+├ □ 5 Fix the broken thing
+├ ▣ 4 Mount the shelf
+├ □ 2 (6/13/2026) Replant the garden
+│ ├ □ 0 Research seeds
+```
+
+## Roadmap
+Things that are going to be added (I don't know in what order):
+- Date-based priority bumps.
+- Removing items
+- Pruning lists
+- Putting completed items at the bottom
+- TUI editor
+- Editing items
+- Getting the next item
+- Downwards (global) searches
