@@ -19,6 +19,8 @@
               shellHook = ''
                 rustc -V
                 cargo -V
+                export PATH=$PATH:./target/debug/:./target/release/
+                echo "Added 'todo' binary to \$PATH"
               '';
             };
         }
