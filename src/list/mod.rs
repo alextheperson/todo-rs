@@ -1,45 +1,58 @@
-pub mod search;
 pub mod format;
 pub mod save;
+pub mod search;
 
-pub fn parse_list(path: std::path::PathBuf) -> List{
-    let content = std::fs::read_to_string(&path)
-        .expect("should have been able to read the file {path}");
+pub fn parse_list(path: std::path::PathBuf) -> List {
+    let content =
+        std::fs::read_to_string(&path).expect("should have been able to read the file {path}");
 
     let lines = content.lines();
 
-    let name = lines.clone().nth(0).expect("expected title in {path}").get(1..).unwrap().to_string();
+    let name = lines
+        .clone()
+        .nth(0)
+        .expect("expected title in {path}")
+        .get(1..)
+        .unwrap()
+        .to_string();
 
     let mut remaining_lines = lines.clone();
     remaining_lines.nth(1);
     let items = parse_items(remaining_lines, 0);
 
-    List{
+    List {
         name: name,
         path: path,
-        items: items
+        items: items,
     }
 }
 
 /// This parses the actual items from a list, ignoring the title, etc.
 fn parse_items(content: std::str::Lines, depth: u8) -> Vec<Item> {
-    let mut items : Vec<Item> = vec![];
+    let mut items: Vec<Item> = vec![];
 
-    let starting_indentation = content.clone().nth(0).unwrap().chars().count() - content.clone().nth(0).unwrap().trim_start().chars().count();
+    let starting_indentation = content.clone().nth(0).unwrap().chars().count()
+        - content.clone().nth(0).unwrap().trim_start().chars().count();
 
     for (i, line) in content.clone().enumerate() {
         let current_indentation = line.chars().count() - line.trim_start().chars().count();
 
         let mut next_indentation = 0;
         if i < content.clone().count() - 1 {
-            next_indentation = content.clone().nth(i + 1).unwrap().chars().count() - content.clone().nth(i + 1).unwrap().trim_start().chars().count();
+            next_indentation = content.clone().nth(i + 1).unwrap().chars().count()
+                - content
+                    .clone()
+                    .nth(i + 1)
+                    .unwrap()
+                    .trim_start()
+                    .chars()
+                    .count();
         }
-
 
         let mut sub_items: Vec<Item> = vec![];
 
         // If we rise out of the level that we start at
-        if current_indentation < starting_indentation  {
+        if current_indentation < starting_indentation {
             break;
         }
 
@@ -60,7 +73,6 @@ fn parse_items(content: std::str::Lines, depth: u8) -> Vec<Item> {
         let mut sections = line.split("\\");
 
         let completed = &sections.next().unwrap_or("- [ ]").trim_start()[3..4] == "x";
-
 
         let has_priority_value = sections.clone().next().unwrap_or("").parse::<i16>().is_ok();
         let priority: i16 = if has_priority_value {
@@ -85,18 +97,26 @@ fn parse_items(content: std::str::Lines, depth: u8) -> Vec<Item> {
 
         sub_items.sort_by(|a, b| b.priority.cmp(&a.priority));
 
-        items.push(
-            Item {
-                name: name,
-                priority: priority,
-                date: date,
-                completed: completed,
-                items: sub_items
-            }
-        );
+        items.push(Item {
+            name: name,
+            priority: priority,
+            date: date,
+            completed: completed,
+            items: sub_items,
+        });
     }
 
-    items.sort_by(|a, b| b.priority.cmp(&a.priority));
+    items.sort_by(|a, b| {
+        if a.completed ^ b.completed {
+            if a.completed && !b.completed {
+                return std::cmp::Ordering::Greater;
+            } else {
+                return std::cmp::Ordering::Less;
+            }
+        } else {
+            return b.priority.cmp(&a.priority);
+        }
+    });
     items
 }
 
@@ -113,5 +133,5 @@ pub struct Item {
 pub struct List {
     pub name: String,
     pub path: std::path::PathBuf,
-    pub items: Vec<Item>
+    pub items: Vec<Item>,
 }
