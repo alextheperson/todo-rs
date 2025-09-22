@@ -55,5 +55,5 @@ pub fn search_down(path: &PathBuf) -> Vec<PathBuf> {
         lists.push(path.join(".todo"));
     }
 
-    lists
+    lists.into_iter().rev().collect::<Vec<PathBuf>>()
 }
