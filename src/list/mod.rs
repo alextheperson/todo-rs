@@ -31,6 +31,10 @@ pub fn parse_list(path: std::path::PathBuf) -> List {
 fn parse_items(content: std::str::Lines, depth: u8) -> Vec<Item> {
     let mut items: Vec<Item> = vec![];
 
+    if content.clone().count() <= 0 {
+        return vec![];
+    }
+
     let starting_indentation = content.clone().nth(0).unwrap().chars().count()
         - content.clone().nth(0).unwrap().trim_start().chars().count();
 

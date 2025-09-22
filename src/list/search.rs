@@ -1,9 +1,13 @@
 use crate::list;
 use crate::search_paths;
 
-pub fn complete_item(list: &mut Vec<list::Item>, prefix: String) -> bool{
+pub fn complete_item(list: &mut Vec<list::Item>, prefix: String) -> bool {
     for (i, item) in list.clone().into_iter().enumerate() {
-        if item.name.to_ascii_lowercase().starts_with(&prefix.to_ascii_lowercase()) {
+        if item
+            .name
+            .to_ascii_lowercase()
+            .starts_with(&prefix.to_ascii_lowercase())
+        {
             list[i].completed = true;
             return true;
         } else if item.items.len() > 0 {
@@ -19,9 +23,13 @@ pub fn complete_item(list: &mut Vec<list::Item>, prefix: String) -> bool{
 
 pub fn toggle_item(list: &mut Vec<list::Item>, prefix: String) -> bool {
     for (i, item) in list.clone().into_iter().enumerate() {
-        if item.name.to_ascii_lowercase().starts_with(&prefix.to_ascii_lowercase()) {
+        if item
+            .name
+            .to_ascii_lowercase()
+            .starts_with(&prefix.to_ascii_lowercase())
+        {
             list[i].completed = !list[i].completed;
-            return true
+            return true;
         } else if item.items.len() > 0 {
             let result = toggle_item(&mut list[i].items, prefix.clone());
             if result {
@@ -33,7 +41,7 @@ pub fn toggle_item(list: &mut Vec<list::Item>, prefix: String) -> bool {
     false
 }
 
-pub fn add_item(list: &mut Vec<list::Item>, new_item: list::Item, prefix: Vec<&str>) -> bool{
+pub fn add_item(list: &mut Vec<list::Item>, new_item: list::Item, prefix: Vec<&str>) -> bool {
     if prefix.len() == 0 {
         for item in list.clone() {
             if item.name.starts_with(&new_item.name) {
@@ -55,12 +63,12 @@ pub fn add_item(list: &mut Vec<list::Item>, new_item: list::Item, prefix: Vec<&s
 }
 
 pub fn get_list(name: String) -> Result<list::List, String> {
-    let paths = search_paths::search_up();
+    let paths = search_paths::search_up(std::fs::canonicalize(".").unwrap());
 
     for path in paths {
         let list = list::parse_list(path);
         if list.name == name {
-            return Ok(list)
+            return Ok(list);
         }
     }
 
