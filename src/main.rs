@@ -44,8 +44,6 @@ fn list(args: &mut std::iter::Skip<std::env::Args>) {
         paths = search_paths::search_up(search_start);
     }
 
-    println!("{:?}", paths);
-
     for path in paths {
         println!(
             "{}",
