@@ -62,8 +62,16 @@ pub fn add_item(list: &mut Vec<list::Item>, new_item: list::Item, prefix: Vec<&s
     false
 }
 
-pub fn get_list(name: String) -> Result<list::List, String> {
-    let paths = search_paths::search_up(std::fs::canonicalize(".").unwrap());
+pub fn get_list(name: String, down: bool) -> Result<list::List, String> {
+    let search_start = std::fs::canonicalize(".").unwrap();
+
+    let paths: Vec<std::path::PathBuf>;
+
+    if down {
+        paths = search_paths::search_down(&search_start);
+    } else {
+        paths = search_paths::search_up(search_start);
+    }
 
     for path in paths {
         let list = list::parse_list(path);

@@ -55,6 +55,7 @@ fn list(args: &mut std::iter::Skip<std::env::Args>) {
 fn add(args: &mut std::iter::Skip<std::env::Args>) {
     let list_name_input = args.next().unwrap();
     let item_path = args.next().unwrap();
+    let options = args.next().unwrap_or(String::new());
 
     let list_name = if list_name_input.starts_with("#") {
         list_name_input[1..].to_string()
@@ -77,7 +78,7 @@ fn add(args: &mut std::iter::Skip<std::env::Args>) {
         items: vec![],
     };
 
-    let mut list = list::search::get_list(list_name.clone()).unwrap();
+    let mut list = list::search::get_list(list_name.clone(), options == "-d").unwrap();
 
     let result = list::search::add_item(&mut list.items, new_item, parents.collect());
 
@@ -90,8 +91,17 @@ fn add(args: &mut std::iter::Skip<std::env::Args>) {
 
 fn complete(args: &mut std::iter::Skip<std::env::Args>) {
     let prefix = args.next().unwrap_or(String::new());
+    let options = args.next().unwrap_or(String::new());
+
     let search_start = std::fs::canonicalize(".").unwrap();
-    let paths = search_paths::search_up(search_start);
+
+    let paths: Vec<std::path::PathBuf>;
+
+    if options == "-d" {
+        paths = search_paths::search_down(&search_start);
+    } else {
+        paths = search_paths::search_up(search_start);
+    }
 
     for path in paths {
         let mut list = list::parse_list(path.clone());
@@ -106,8 +116,17 @@ fn complete(args: &mut std::iter::Skip<std::env::Args>) {
 
 fn toggle(args: &mut std::iter::Skip<std::env::Args>) {
     let prefix = args.next().unwrap_or(String::new());
+    let options = args.next().unwrap_or(String::new());
+
     let search_start = std::fs::canonicalize(".").unwrap();
-    let paths = search_paths::search_up(search_start);
+
+    let paths: Vec<std::path::PathBuf>;
+
+    if options == "-d" {
+        paths = search_paths::search_down(&search_start);
+    } else {
+        paths = search_paths::search_up(search_start);
+    }
 
     for path in paths {
         let mut list = list::parse_list(path.clone());
