@@ -32,13 +32,13 @@ fn new(args: &mut std::iter::Skip<std::env::Args>) {
 
 /// Display all of the active todo lists
 fn list(args: &mut std::iter::Skip<std::env::Args>) {
-    let options = args.next().unwrap_or(String::new());
+    let options: Vec<String> = args.collect();
 
     let search_start = std::fs::canonicalize(".").unwrap();
 
     let paths: Vec<std::path::PathBuf>;
 
-    if options == "-d" {
+    if options.contains(&"-d".to_string()) {
         paths = search_paths::search_down(&search_start);
     } else {
         paths = search_paths::search_up(search_start);
@@ -47,7 +47,11 @@ fn list(args: &mut std::iter::Skip<std::env::Args>) {
     for path in paths {
         println!(
             "{}",
-            list::format::format_list(list::parse_list(path.clone()), path)
+            list::format::format_list(
+                list::parse_list(path.clone()),
+                path,
+                !options.contains(&"-nc".to_string())
+            )
         );
     }
 }
@@ -55,7 +59,7 @@ fn list(args: &mut std::iter::Skip<std::env::Args>) {
 fn add(args: &mut std::iter::Skip<std::env::Args>) {
     let list_name_input = args.next().unwrap();
     let item_path = args.next().unwrap();
-    let options = args.next().unwrap_or(String::new());
+    let options: Vec<String> = args.collect();
 
     let list_name = if list_name_input.starts_with("#") {
         list_name_input[1..].to_string()
@@ -78,7 +82,8 @@ fn add(args: &mut std::iter::Skip<std::env::Args>) {
         items: vec![],
     };
 
-    let mut list = list::search::get_list(list_name.clone(), options == "-d").unwrap();
+    let mut list =
+        list::search::get_list(list_name.clone(), options.contains(&"-d".to_string())).unwrap();
 
     let result = list::search::add_item(&mut list.items, new_item, parents.collect());
 
@@ -91,13 +96,13 @@ fn add(args: &mut std::iter::Skip<std::env::Args>) {
 
 fn complete(args: &mut std::iter::Skip<std::env::Args>) {
     let prefix = args.next().unwrap_or(String::new());
-    let options = args.next().unwrap_or(String::new());
+    let options: Vec<String> = args.collect();
 
     let search_start = std::fs::canonicalize(".").unwrap();
 
     let paths: Vec<std::path::PathBuf>;
 
-    if options == "-d" {
+    if options.contains(&"-d".to_string()) {
         paths = search_paths::search_down(&search_start);
     } else {
         paths = search_paths::search_up(search_start);
@@ -116,13 +121,13 @@ fn complete(args: &mut std::iter::Skip<std::env::Args>) {
 
 fn toggle(args: &mut std::iter::Skip<std::env::Args>) {
     let prefix = args.next().unwrap_or(String::new());
-    let options = args.next().unwrap_or(String::new());
+    let options: Vec<String> = args.collect();
 
     let search_start = std::fs::canonicalize(".").unwrap();
 
     let paths: Vec<std::path::PathBuf>;
 
-    if options == "-d" {
+    if options.contains(&"-d".to_string()) {
         paths = search_paths::search_down(&search_start);
     } else {
         paths = search_paths::search_up(search_start);
