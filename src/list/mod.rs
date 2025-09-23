@@ -12,7 +12,7 @@ pub fn parse_list(path: std::path::PathBuf) -> List {
         .clone()
         .nth(0)
         .expect("expected title in {path}")
-        .get(1..)
+        .get(2..)
         .unwrap()
         .to_string();
 
