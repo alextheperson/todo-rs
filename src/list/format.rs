@@ -4,18 +4,46 @@ pub fn format_list(list: List, path: std::path::PathBuf, with_color: bool) -> St
     let mut output = String::new();
 
     if with_color {
-        output += &format!(
-            "\u{001b}[2m╭ #\u{001b}[22m {} \u{001b}[2m({})\u{001b}[22m\n",
-            list.name,
-            path.as_path().display()
-        )[..];
+        output += "\u{001b}[2m╭ #\u{001b}[22m ";
+    } else {
+        output += "╭ # ";
+    }
+
+    if with_color {
+        if list.date != "".to_string() {
+            output += &format!(
+                "{} - {} \u{001b}[2m({})\u{001b}[22m\n",
+                list.name,
+                list.date,
+                path.as_path().display()
+            )[..];
+        } else {
+            output += &format!(
+                "{} \u{001b}[2m({})\u{001b}[22m\n",
+                list.name,
+                path.as_path().display()
+            )[..];
+        }
+    } else {
+        if list.date != "".to_string() {
+            output += &format!(
+                "{} - {} ({})\n",
+                list.name,
+                list.date,
+                path.as_path().display()
+            )[..];
+        } else {
+            output += &format!("{} ({})\n", list.name, path.as_path().display())[..];
+        }
+    }
+
+    if with_color {
         output += "\u{001b}[2m│\u{001b}[22m\n";
         output += &format!(
             "{}",
             format_item_vec(list.items.clone(), vec![], with_color)
         )[..];
     } else {
-        output += &format!("╭ # {} ({})\n", list.name, path.as_path().display())[..];
         output += "│\n";
         output += &format!(
             "{}",

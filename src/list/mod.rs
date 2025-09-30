@@ -8,27 +8,47 @@ pub fn parse_list(path: std::path::PathBuf) -> List {
 
     let lines = content.lines();
 
-    let name = lines
-        .clone()
-        .nth(0)
-        .expect("expected title in {path}")
-        .get(2..)
-        .unwrap()
-        .to_string();
+    let mut name = "Unnamed Todo List".to_string();
+    let mut priority = 0;
+    let mut date = String::new();
+    let mut lines_to_skip = 0;
 
-    let mut remaining_lines = lines.clone();
-    remaining_lines.nth(1);
+    for (i, line) in lines.clone().enumerate() {
+        if line.starts_with("#") {
+            lines_to_skip += 1;
+            if i == 0 {
+                name = line[2..].to_string()
+            } else {
+                let mut parts = line.split(" ").skip(1);
+                let property = parts.next().unwrap();
+
+                match property {
+                    "priority" => priority = parts.next().unwrap().parse().unwrap(),
+                    "date" => date = parts.next().unwrap().to_string(),
+                    _ => println!("Unknown property! '{}'", property),
+                }
+            }
+        }
+    }
+
+    let remaining_lines = lines
+        .clone()
+        .skip(lines_to_skip + 1)
+        .collect::<Vec<&str>>()
+        .into_iter();
     let items = parse_items(remaining_lines, 0);
 
     List {
         name: name,
         path: path,
+        priority: priority,
+        date: date,
         items: items,
     }
 }
 
 /// This parses the actual items from a list, ignoring the title, etc.
-fn parse_items(content: std::str::Lines, depth: u8) -> Vec<Item> {
+fn parse_items(content: std::vec::IntoIter<&str>, depth: u8) -> Vec<Item> {
     let mut items: Vec<Item> = vec![];
 
     if content.clone().count() <= 0 {
@@ -137,5 +157,7 @@ pub struct Item {
 pub struct List {
     pub name: String,
     pub path: std::path::PathBuf,
+    pub priority: i16,
+    pub date: String,
     pub items: Vec<Item>,
 }

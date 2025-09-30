@@ -44,12 +44,19 @@ fn list(args: &mut std::iter::Skip<std::env::Args>) {
         paths = search_paths::search_up(search_start);
     }
 
-    for path in paths {
+    let mut lists = paths
+        .into_iter()
+        .map(|val| list::parse_list(val.clone()))
+        .collect::<Vec<list::List>>();
+
+    lists.sort_by(|a, b| b.priority.cmp(&a.priority));
+
+    for list in lists {
         println!(
             "{}",
             list::format::format_list(
-                list::parse_list(path.clone()),
-                path,
+                list.clone(),
+                list.path,
                 !options.contains(&"-nc".to_string())
             )
         );
