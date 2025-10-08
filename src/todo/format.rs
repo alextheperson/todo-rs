@@ -1,6 +1,6 @@
-use crate::list::{Item, List};
+use crate::todo::{document, item};
 
-pub fn format_list(list: List, path: std::path::PathBuf, with_color: bool) -> String {
+pub fn format_list(list: document::Document, path: std::path::PathBuf, with_color: bool) -> String {
     let mut output = String::new();
 
     if with_color {
@@ -16,13 +16,13 @@ pub fn format_list(list: List, path: std::path::PathBuf, with_color: bool) -> St
                 list.name,
                 list.date,
                 path.as_path().display()
-            )[..];
+            );
         } else {
             output += &format!(
                 "{} \u{001b}[2m({})\u{001b}[22m\n",
                 list.name,
                 path.as_path().display()
-            )[..];
+            );
         }
     } else {
         if list.date != "".to_string() {
@@ -31,9 +31,9 @@ pub fn format_list(list: List, path: std::path::PathBuf, with_color: bool) -> St
                 list.name,
                 list.date,
                 path.as_path().display()
-            )[..];
+            );
         } else {
-            output += &format!("{} ({})\n", list.name, path.as_path().display())[..];
+            output += &format!("{} ({})\n", list.name, path.as_path().display());
         }
     }
 
@@ -42,19 +42,19 @@ pub fn format_list(list: List, path: std::path::PathBuf, with_color: bool) -> St
         output += &format!(
             "{}",
             format_item_vec(list.items.clone(), vec![], with_color)
-        )[..];
+        );
     } else {
         output += "│\n";
         output += &format!(
             "{}",
             format_item_vec(list.items.clone(), vec![], with_color)
-        )[..];
+        );
     }
 
     output
 }
 
-fn format_item_vec(items: Vec<Item>, lines: Vec<bool>, with_color: bool) -> String {
+fn format_item_vec(items: Vec<item::Item>, lines: Vec<bool>, with_color: bool) -> String {
     let mut output = String::new();
 
     for (i, item) in items.clone().into_iter().enumerate() {
@@ -65,7 +65,7 @@ fn format_item_vec(items: Vec<Item>, lines: Vec<bool>, with_color: bool) -> Stri
     output
 }
 
-fn format_item(item: Item, end: bool, lines: Vec<bool>, with_color: bool) -> String {
+fn format_item(item: item::Item, end: bool, lines: Vec<bool>, with_color: bool) -> String {
     let mut output = String::new();
 
     for level in lines.clone() {
@@ -127,7 +127,7 @@ fn format_item(item: Item, end: bool, lines: Vec<bool>, with_color: bool) -> Str
                 name = item.name,
 
                 children = format_item_vec(item.items.clone(), new_lines, with_color)
-            )[..];
+            );
         } else {
             output += &format!("{box} {priority} ({date}) {name}\u{001b}[29m\u{001b}[22m\n{children}",
                 box = if item.completed { "\u{001b}[2m▣\u{001b}[9m" } else { "□" },
@@ -135,7 +135,7 @@ fn format_item(item: Item, end: bool, lines: Vec<bool>, with_color: bool) -> Str
                 name = item.name,
                 date = item.date,
                 children = format_item_vec(item.items.clone(), new_lines, with_color)
-            )[..];
+            );
         }
     } else {
         if item.date == "" {
@@ -145,7 +145,7 @@ fn format_item(item: Item, end: bool, lines: Vec<bool>, with_color: bool) -> Str
                 name = item.name,
 
                 children = format_item_vec(item.items.clone(), new_lines, with_color)
-            )[..];
+            );
         } else {
             output += &format!("{box} {priority} ({date}) {name}\n{children}",
                 box = if item.completed { "▣" } else { "□" },
@@ -153,7 +153,7 @@ fn format_item(item: Item, end: bool, lines: Vec<bool>, with_color: bool) -> Str
                 name = item.name,
                 date = item.date,
                 children = format_item_vec(item.items.clone(), new_lines, with_color)
-            )[..];
+            );
         }
     }
 

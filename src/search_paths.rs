@@ -1,3 +1,4 @@
+use crate::todo::document;
 use std::{fs, path::Path, path::PathBuf};
 
 pub fn has_todo_list(path: &Path) -> bool {
@@ -9,7 +10,7 @@ pub fn search_up(path: PathBuf) -> Vec<PathBuf> {
 
     for ancestor in path.clone().ancestors() {
         if has_todo_list(ancestor) {
-            lists.push(PathBuf::from(ancestor.join(".todo")));
+            lists.push(PathBuf::from(ancestor));
         }
     }
 
@@ -52,8 +53,29 @@ pub fn search_down(path: &PathBuf) -> Vec<PathBuf> {
     }
 
     if has_todo_list(path) {
-        lists.push(path.join(".todo"));
+        lists.push(path.clone());
     }
 
     lists.into_iter().rev().collect::<Vec<PathBuf>>()
+}
+
+pub fn find_list(name: String, down: bool) -> Result<document::Document, String> {
+    let search_start = std::fs::canonicalize(".").unwrap();
+
+    let paths: Vec<std::path::PathBuf>;
+
+    if down {
+        paths = search_down(&search_start);
+    } else {
+        paths = search_up(search_start);
+    }
+
+    for path in paths {
+        let list = document::Document::from_path(&path);
+        if list.name == name {
+            return Ok(list);
+        }
+    }
+
+    Err(format!("No list called '{name}'"))
 }

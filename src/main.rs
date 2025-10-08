@@ -1,6 +1,8 @@
 use std::fs;
-mod list;
 mod search_paths;
+mod todo;
+use todo::list::ItemList;
+use todo::{document, item};
 
 fn main() {
     let cmd = std::env::args().nth(1).unwrap_or(String::from(""));
@@ -46,15 +48,15 @@ fn list(args: &mut std::iter::Skip<std::env::Args>) {
 
     let mut lists = paths
         .into_iter()
-        .map(|val| list::parse_list(val.clone()))
-        .collect::<Vec<list::List>>();
+        .map(|val| document::Document::from_path(&val))
+        .collect::<Vec<document::Document>>();
 
     lists.sort_by(|a, b| b.priority.cmp(&a.priority));
 
     for list in lists {
         println!(
             "{}",
-            list::format::format_list(
+            todo::format::format_list(
                 list.clone(),
                 list.path,
                 !options.contains(&"-nc".to_string())
@@ -76,12 +78,12 @@ fn add(args: &mut std::iter::Skip<std::env::Args>) {
 
     let item_path_components = item_path.split("/");
 
-    let parents = item_path_components
+    let item_name = item_path_components
         .clone()
-        .take(item_path_components.clone().count() - 1);
-    let item_name = item_path_components.last().unwrap_or("Unnamed Item");
+        .last()
+        .unwrap_or("Unnamed Item");
 
-    let new_item = list::Item {
+    let new_item = item::Item {
         name: item_name.to_string(),
         priority: 0,
         date: "".to_string(),
@@ -90,22 +92,21 @@ fn add(args: &mut std::iter::Skip<std::env::Args>) {
     };
 
     let mut list =
-        list::search::get_list(list_name.clone(), options.contains(&"-d".to_string())).unwrap();
+        search_paths::find_list(list_name.clone(), options.contains(&"-d".to_string())).unwrap();
 
-    let result = list::search::add_item(&mut list.items, new_item, parents.collect());
+    list.items
+        .add_item(new_item, item_path_components.collect());
 
-    if result {
-        list::save::save_list(list);
+    list.save();
 
-        println!("Added {item_path} to #{list_name}");
-    }
+    println!("Added {item_path} to #{list_name}");
 }
 
 fn complete(args: &mut std::iter::Skip<std::env::Args>) {
     let prefix = args.next().unwrap_or(String::new());
     let options: Vec<String> = args.collect();
 
-    let search_start = std::fs::canonicalize(".").unwrap();
+    let search_start = std::fs::canonicalize("./").unwrap();
 
     let paths: Vec<std::path::PathBuf>;
 
@@ -115,13 +116,26 @@ fn complete(args: &mut std::iter::Skip<std::env::Args>) {
         paths = search_paths::search_up(search_start);
     }
 
-    for path in paths {
-        let mut list = list::parse_list(path.clone());
-        let found = list::search::complete_item(&mut list.items, prefix.clone());
+    for path in paths.into_iter().rev() {
+        let mut list = document::Document::from_path(&path);
+        let result = list.items.find(vec![&prefix]);
 
-        if found {
-            list::save::save_list(list.clone());
-            println!("Marked '{name}*' as complete", name = prefix);
+        if result.is_ok() {
+            let unwrapped_item = result.unwrap();
+            unwrapped_item.completed = true;
+            println!(
+                "Marked '{name}' in list '{list}' as complete",
+                name = unwrapped_item.name,
+                list = list.name
+            );
+            list.save();
+            return;
+        } else {
+            println!(
+                "Could not find item '{path}' in list '{list}'.",
+                path = prefix.split("/").collect::<Vec<&str>>().join("*/"),
+                list = list.name
+            );
         }
     }
 }
@@ -140,13 +154,31 @@ fn toggle(args: &mut std::iter::Skip<std::env::Args>) {
         paths = search_paths::search_up(search_start);
     }
 
-    for path in paths {
-        let mut list = list::parse_list(path.clone());
-        let found = list::search::toggle_item(&mut list.items, prefix.clone());
+    for path in paths.into_iter().rev() {
+        let mut list = document::Document::from_path(&path);
+        let result = list.items.find(vec![&prefix]);
 
-        if found {
-            list::save::save_list(list.clone());
-            println!("Toggeled the completion of '{name}*'", name = prefix);
+        if result.is_ok() {
+            let unwrapped_item = result.unwrap();
+            unwrapped_item.completed = !unwrapped_item.completed;
+            println!(
+                "Toggled '{name}' in list '{list}' it is now {status}",
+                name = unwrapped_item.name,
+                list = list.name,
+                status = if unwrapped_item.completed {
+                    "complete"
+                } else {
+                    "incomplete"
+                }
+            );
+            list.save();
+            return;
+        } else {
+            println!(
+                "Could not find item '{path}' in list '{list}'.",
+                path = prefix.split("/").collect::<Vec<&str>>().join("*/"),
+                list = list.name
+            );
         }
     }
 }
