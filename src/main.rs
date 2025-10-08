@@ -3,6 +3,10 @@ mod search_paths;
 mod todo;
 use todo::list::ItemList;
 use todo::{document, item};
+mod output;
+use output::Render;
+
+use crate::output::RenderFormat;
 
 fn main() {
     let cmd = std::env::args().nth(1).unwrap_or(String::from(""));
@@ -53,15 +57,20 @@ fn list(args: &mut std::iter::Skip<std::env::Args>) {
 
     lists.sort_by(|a, b| b.priority.cmp(&a.priority));
 
+    let format = if options.contains(&"--html".to_string()) {
+        RenderFormat::HTML
+    } else if options.contains(&"--html-class".to_string()) {
+        RenderFormat::HtmlClass
+    } else if options.contains(&"--json".to_string()) {
+        RenderFormat::JSON
+    } else if options.contains(&"--plain".to_string()) {
+        RenderFormat::Plain
+    } else {
+        RenderFormat::ANSI
+    };
+
     for list in lists {
-        println!(
-            "{}",
-            todo::format::format_list(
-                list.clone(),
-                list.path,
-                !options.contains(&"-nc".to_string())
-            )
-        );
+        println!("{}", list.clone().format(list.path).render(&format));
     }
 }
 

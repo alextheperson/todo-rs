@@ -1,5 +1,6 @@
+use crate::ItemList;
+use crate::output;
 use crate::todo::list;
-use crate::todo::list::ItemList;
 
 #[derive(Debug, Clone)]
 pub struct Document {
@@ -83,5 +84,53 @@ impl Document {
             "should have been able to save the '.todo' file at {}",
             self.path.display()
         ));
+    }
+
+    pub fn format(&self, path: std::path::PathBuf) -> output::buffer::OutputBuffer {
+        let mut output = output::buffer::OutputBuffer::new();
+
+        let mut first_line = output::line::OutputLine::new();
+
+        first_line.add(output::segment::OutputSegment::new(
+            "╭ # ",
+            output::color::Color::Default,
+            *output::style::Style::new().dim(),
+        ));
+
+        if self.date != String::new() {
+            first_line.add(output::segment::OutputSegment::new(
+                &format!("{name} - {date} ", name = self.name, date = self.date),
+                output::color::Color::Default,
+                output::style::Style::normal(),
+            ));
+        } else {
+            first_line.add(output::segment::OutputSegment::new(
+                &format!("{name} ", name = self.name),
+                output::color::Color::Default,
+                output::style::Style::normal(),
+            ));
+        }
+
+        first_line.add(output::segment::OutputSegment::new(
+            &format!("({path})", path = path.as_path().display()),
+            output::color::Color::Default,
+            *output::style::Style::new().dim(),
+        ));
+
+        output.add(first_line);
+
+        output.add(
+            output::line::OutputLine::new()
+                .add(output::segment::OutputSegment::new(
+                    "│",
+                    output::color::Color::Default,
+                    *output::style::Style::new().dim(),
+                ))
+                .clone(),
+        );
+
+        output.append(self.items.clone().format(vec![]));
+
+        output
     }
 }

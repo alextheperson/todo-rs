@@ -1,3 +1,4 @@
+use crate::output;
 use crate::todo::item::{self, Item};
 
 pub type List = Vec<Item>;
@@ -7,6 +8,7 @@ pub trait ItemList {
     fn to_save(&self) -> String;
     fn find(&mut self, path: Vec<&str>) -> Result<&mut item::Item, String>;
     fn add_item(&mut self, item: Item, path: Vec<&str>);
+    fn format(&self, lines: Vec<bool>) -> output::buffer::OutputBuffer;
 }
 
 impl ItemList for List {
@@ -111,5 +113,16 @@ impl ItemList for List {
 
     fn add_item(&mut self, item: Item, path: Vec<&str>) {
         self.find(path).unwrap().items.push(item);
+    }
+
+    fn format(&self, lines: Vec<bool>) -> output::buffer::OutputBuffer {
+        let mut output = output::buffer::OutputBuffer::new();
+
+        for (i, item) in self.clone().into_iter().enumerate() {
+            let is_end = i >= self.len() - 1;
+            output.append(item.clone().format(is_end, lines.clone()));
+        }
+
+        output
     }
 }

@@ -1,3 +1,6 @@
+use crate::ItemList;
+use crate::output;
+
 #[derive(Debug, Clone)]
 pub struct Item {
     pub completed: bool,
@@ -73,6 +76,98 @@ impl Item {
         } else {
             output += &format!("{indent}- [{completed}] \\{priority}\\{date}\\ {name}\n");
         }
+
+        output
+    }
+
+    pub fn format(&self, end: bool, lines: Vec<bool>) -> output::buffer::OutputBuffer {
+        let mut output = output::buffer::OutputBuffer::new();
+        let mut output_line = output::line::OutputLine::new();
+
+        for level in lines.clone() {
+            if level {
+                output_line.add(output::segment::OutputSegment::new(
+                    "  ",
+                    output::color::Color::Default,
+                    output::style::Style::normal(),
+                ));
+            } else {
+                output_line.add(output::segment::OutputSegment::new(
+                    "│ ",
+                    output::color::Color::Default,
+                    *output::style::Style::new().dim(),
+                ));
+            }
+        }
+
+        if end {
+            output_line.add(output::segment::OutputSegment::new(
+                "╰ ",
+                output::color::Color::Default,
+                *output::style::Style::new().dim(),
+            ));
+        } else {
+            output_line.add(output::segment::OutputSegment::new(
+                "├ ",
+                output::color::Color::Default,
+                *output::style::Style::new().dim(),
+            ));
+        }
+
+        let mut new_lines = lines.clone();
+        new_lines.push(end);
+
+        // Set colors based on the priority
+        let color = match self.priority {
+            i16::MIN..=-7 => output::color::Color::Green,
+            -6 => output::color::Color::Green,
+            -5 => output::color::Color::Green,
+            -4 => output::color::Color::Blue,
+            -3 => output::color::Color::Blue,
+            -2 => output::color::Color::Cyan,
+            -1 => output::color::Color::Cyan,
+            0 => output::color::Color::White,
+            1 => output::color::Color::Yellow,
+            2 => output::color::Color::Yellow,
+            3 => output::color::Color::Magenta,
+            4 => output::color::Color::Magenta,
+            5 => output::color::Color::Red,
+            6 => output::color::Color::Red,
+            7..=i16::MAX => output::color::Color::Red,
+        };
+
+        let style = if self.completed {
+            *output::style::Style::new().dim().strikethrough()
+        } else {
+            output::style::Style::normal()
+        };
+
+        if self.date == "" {
+            output_line.add(output::segment::OutputSegment::new(
+                &format!("{box} {priority} {name}",
+                    box = if self.completed { "▣" } else { "□" },
+                    priority = self.priority,
+                    name = self.name,
+                ),
+                color,
+                style,
+            ));
+        } else {
+            output_line.add(output::segment::OutputSegment::new(
+                &format!("{box} {priority} ({date}) {name}",
+                    box = if self.completed { "▣" } else { "□" },
+                    priority = self.priority,
+                    name = self.name,
+                    date = self.date,
+                ),
+                color,
+                style,
+            ));
+        }
+
+        output.add(output_line);
+
+        output.append(self.items.clone().format(new_lines));
 
         output
     }
