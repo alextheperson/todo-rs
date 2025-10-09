@@ -61,8 +61,8 @@ fn list(args: &mut std::iter::Skip<std::env::Args>) {
         RenderFormat::HTML
     } else if options.contains(&"--html-class".to_string()) {
         RenderFormat::HtmlClass
-    } else if options.contains(&"--json".to_string()) {
-        RenderFormat::JSON
+    } else if options.contains(&"--pango".to_string()) {
+        RenderFormat::Pango
     } else if options.contains(&"--plain".to_string()) {
         RenderFormat::Plain
     } else {

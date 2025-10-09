@@ -34,16 +34,14 @@ impl Render for OutputBuffer {
         for line in self.lines {
             output += &line.render(&format);
             match format {
-                RenderFormat::Plain | RenderFormat::ANSI => output += "\n",
+                RenderFormat::Plain | RenderFormat::ANSI | RenderFormat::Pango => output += "\n",
                 RenderFormat::HTML | RenderFormat::HtmlClass => output += "<br>",
-                RenderFormat::JSON => panic!("JSON format is not implemented yet"),
             }
         }
 
         match format {
-            RenderFormat::Plain | RenderFormat::ANSI => output += "\n",
+            RenderFormat::Plain | RenderFormat::ANSI | RenderFormat::Pango => output += "\n",
             RenderFormat::HTML | RenderFormat::HtmlClass => output += "<br>",
-            RenderFormat::JSON => panic!("JSON format is not implemented yet"),
         }
 
         output

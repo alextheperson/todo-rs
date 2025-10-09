@@ -10,7 +10,7 @@ pub enum RenderFormat {
     ANSI,
     HTML,
     HtmlClass,
-    JSON,
+    Pango,
 }
 
 pub trait Render {

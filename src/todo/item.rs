@@ -126,7 +126,7 @@ impl Item {
             -3 => output::color::Color::Blue,
             -2 => output::color::Color::Cyan,
             -1 => output::color::Color::Cyan,
-            0 => output::color::Color::White,
+            0 => output::color::Color::Default,
             1 => output::color::Color::Yellow,
             2 => output::color::Color::Yellow,
             3 => output::color::Color::Magenta,

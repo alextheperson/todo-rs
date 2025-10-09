@@ -43,7 +43,12 @@ impl Render for OutputSegment {
                 color = self.color.render(&format),
                 content = self.content
             ),
-            RenderFormat::JSON => panic!("JSON is not implemented yet"),
+            RenderFormat::Pango => format!(
+                "<span {style}{color}>{content}</span>",
+                style = self.style.render(&format),
+                color = self.color.render(&format),
+                content = self.content
+            ),
         }
     }
 }

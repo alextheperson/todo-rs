@@ -61,7 +61,23 @@ impl Render for Color {
                 };
                 color.to_string()
             }
-            RenderFormat::JSON => "".to_string(),
+            RenderFormat::Pango => match self {
+                Color::Default => String::new(),
+                _ => {
+                    let color = match self {
+                        Color::Black => "black",
+                        Color::Red => "red",
+                        Color::Green => "green",
+                        Color::Yellow => "yellow",
+                        Color::Blue => "blue",
+                        Color::Magenta => "magenta",
+                        Color::Cyan => "cyan",
+                        Color::White => "white",
+                        _ => panic!("Uh oh..."),
+                    };
+                    format!("color=\"{color}\"")
+                }
+            },
         }
     }
 }

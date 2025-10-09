@@ -172,7 +172,36 @@ impl Render for Style {
 
                 output
             }
-            RenderFormat::JSON => "".to_string(),
+            RenderFormat::Pango => {
+                let mut output = String::new();
+
+                if self.bright {
+                    output += "weight=\"bold\" ";
+                }
+                if self.dim {
+                    output += "alpha=\"50%\" ";
+                }
+                if self.italic {
+                    output += "style=\"italic\" ";
+                }
+                if self.underline {
+                    output += "underline=\"single\" ";
+                }
+                if self.blink {
+                    output += "gravity=\"north\" ";
+                }
+                if self.inverse {
+                    output += "color=\"black\" background=\"white\"";
+                }
+                if self.hidden {
+                    output += "alpha=\"10%\" ";
+                }
+                if self.strikethrough {
+                    output += "strikethrough=\"true\" ";
+                }
+
+                output
+            }
         }
     }
 }
