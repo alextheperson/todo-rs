@@ -1,13 +1,14 @@
 use crate::output;
 use crate::todo::item::{self, Item};
+use crate::todo::path::ItemPath;
 
 pub type List = Vec<Item>;
 
 pub trait ItemList {
     fn parse(file: String) -> List;
     fn to_save(&self) -> String;
-    fn find(&mut self, path: Vec<&str>) -> Result<&mut item::Item, String>;
-    fn add_item(&mut self, item: Item, path: Vec<&str>);
+    fn find(&mut self, path: ItemPath) -> Result<&mut item::Item, String>;
+    fn add_item(&mut self, item: Item, path: ItemPath);
     fn format(&self, lines: Vec<bool>) -> output::buffer::OutputBuffer;
 }
 
@@ -89,30 +90,42 @@ impl ItemList for List {
     }
 
     // Get a mutable reference to an item that matches a certain path.
-    fn find(&mut self, path: Vec<&str>) -> Result<&mut item::Item, String> {
-        let prefix = &path[0];
+    fn find(&mut self, path: ItemPath) -> Result<&mut item::Item, String> {
+        let mut matching_itmes = vec![];
+
         for (i, item) in self.clone().into_iter().enumerate() {
-            if item
-                .name
-                .to_ascii_lowercase()
-                .starts_with(&prefix.to_ascii_lowercase())
-            {
-                if path.len() == 1 {
-                    return Ok(&mut self[i]);
-                } else {
-                    return self[i].items.find(path[1..].to_vec());
+            if path.clone().matches(item.clone()) {
+                matching_itmes.push(i);
+            }
+        }
+
+        // There is probably a better way to do this, but I don't know enough rust for that.
+        if path.item_prefixes.len() == 1 && matching_itmes.len() > 0 {
+            return Ok(&mut self[matching_itmes[0]]);
+        } else {
+            for i in matching_itmes {
+                let mut cloned_list = self.clone();
+                let result = cloned_list[i].items.find(path.clone().shifted());
+
+                if result.is_ok() {
+                    return self[i].items.find(path.clone().shifted());
                 }
             }
         }
 
         Err(format!(
             "Could not find an item that started with '{}'",
-            path[0]
+            path.item_prefixes[0]
         ))
     }
 
-    fn add_item(&mut self, item: Item, path: Vec<&str>) {
-        self.find(path).unwrap().items.push(item);
+    fn add_item(&mut self, item: Item, path: ItemPath) {
+        // If there is no item specified, simply add it to the root of the list.
+        if path.item_prefixes.len() == 0 {
+            self.push(item.clone());
+        } else {
+            self.find(path).unwrap().items.push(item);
+        }
     }
 
     fn format(&self, lines: Vec<bool>) -> output::buffer::OutputBuffer {

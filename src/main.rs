@@ -1,50 +1,290 @@
-use std::fs;
+use std::{fs, path};
 mod search_paths;
 mod todo;
+use clap::builder::PossibleValue;
+use clap::builder::ValueParser;
+use todo::document;
 use todo::list::ItemList;
-use todo::{document, item};
 mod output;
 use output::Render;
 
 use crate::output::RenderFormat;
+use crate::todo::item::Item;
+use crate::todo::path::ItemPath;
+
+use clap::{ArgAction, Command, arg, value_parser};
 
 fn main() {
-    let cmd = std::env::args().nth(1).unwrap_or(String::from(""));
+    let command = Command::new("todo")
+        .version("1.0")
+        .about("Manage the items that you need to do.\n\nWith no arguments, it opens a TUI to edit your .todo list")
+                .arg(
+                    arg!([PATH] "Specify the PATH of the `.todo` to edit.")
+                        // .required(false)
+                        .value_parser(value_parser!(std::path::PathBuf)),
+                )
+        .subcommand(
+            Command::new("new")
+                .about("Create a new `.todo` in the current directory.")
+                .arg(
+                    arg!([PATH] "Specify an alternate path to create the new todo.")
+                        .default_value("./")
+                        .value_parser(value_parser!(std::path::PathBuf)),
+                ),
+        )
+        .subcommand(
+            Command::new("next")
+                .about("Create a new `.tood` in the current directory.")
+                .arg(
+                    arg!([PATH] "An alternate path in which to look for the next todo.")
+                        .default_value("./")
+                        .value_parser(value_parser!(std::path::PathBuf)),
+                ),
+        )
+        .subcommand(
+            Command::new("list")
+                .about("List todo items for the current directory and its parents.")
+                .arg(
+                    arg!(-d --down "Search down through files instead of up.")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    arg!(-f --format [FORMAT] "Set the output format.")
+                        .action(ArgAction::Set)
+                        .value_name("format")
+                        .default_value("ansi")
+                        .value_parser([
+                            PossibleValue::new("ansi").help("Use terminal escape codes (default)."),
+                            PossibleValue::new("plain").help("Use plaintext."),
+                            PossibleValue::new("html").help("Use HTML with inline styles."),
+                            PossibleValue::new("html-class").help(
+                                "Use HTML, with no porovided styles (bring your own colors).",
+                            ),
+                            PossibleValue::new("pango").help("Use Pango markup (eg. for waybar)."),
+                        ]),
+                )
+                .arg(
+                    arg!([PATH] "Specify an alternate path to create the new todo.")
+                        .default_value("./")
+                        .value_parser(value_parser!(std::path::PathBuf)),
+                )
+                .arg(
+                    arg!(-a --archived "Show archived items.")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    arg!(-c --completed "Hide completed items.")
+                        .action(ArgAction::SetTrue),
+                )
+        )
+        .subcommand(
+            Command::new("add")
+                .about("Add an item to a todo list.")
+                .arg(
+                    arg!(<TODO_PATH> "The path of the todo item to add.")
+                        .value_parser(ValueParser::new(todo::path::ItemPath::parse_item_path)),
+                )
+                    .arg(arg!(<ITEM_NAME> "The name of the item to add.")
+                        .value_parser(value_parser!(String)),
+                )
+                .arg(
+                    arg!(-d --down "Search down through files instead of up.")
+                        .action(ArgAction::SetTrue),
+                )
+        )
+        .subcommand(
+            Command::new("remove")
+                .about("Remove an item from a todo list.")
+                .arg(
+                    arg!(<TODO_PATH> "The path of the todo item to remove.")
+                        .value_parser(ValueParser::new(todo::path::ItemPath::parse_item_path)),
+                )
+                .arg(
+                    arg!(-d --down "Search down through files instead of up.")
+                        .action(ArgAction::SetTrue),
+                )
+        )
+        .subcommand(
+            Command::new("prune")
+                .about("Archive all completed todo items.")
+                .arg(
+                    arg!(-s --single [PATH] "Prune only a single list.")
+                        .value_parser(ValueParser::new(todo::path::ItemPath::parse_item_path)),
+                )
+        )
+        .subcommand(
+            Command::new("complete")
+                .about("Mark a todo item as completed.")
+                .arg(
+                    arg!(<TODO_PATH> "The path of the todo item to complete.")
+                        .value_parser(ValueParser::new(todo::path::ItemPath::parse_item_path)),
+                )
+                .arg(
+                    arg!(-d --down "Search down through files instead of up.")
+                        .action(ArgAction::SetTrue),
+                )
+        )
+        .subcommand(
+            Command::new("toggle")
+                .about("Toggle the completion of a todo item.")
+                .arg(
+                    arg!(<TODO_PATH> "The path of the todo item to toggle.")
+                        .value_parser(ValueParser::new(todo::path::ItemPath::parse_item_path)),
+                )
+                .arg(
+                    arg!(-d --down "Search down through files instead of up.")
+                        .action(ArgAction::SetTrue),
+                )
+        )
+        .subcommand(
+            Command::new("incomplete")
+                .about("Mark a todo item as incomplete.")
+                .arg(
+                    arg!(<TODO_PATH> "The path of the todo item to mark.")
+                        .value_parser(ValueParser::new(todo::path::ItemPath::parse_item_path)),
+                )
+                .arg(
+                    arg!(-d --down "Search down through files instead of up.")
+                        .action(ArgAction::SetTrue),
+                )
+        )
+        .subcommand(
+            Command::new("edit")
+                .about("Edit the properties of a todo item.")
+                .arg(
+                    arg!(<TODO_PATH> "The path of the todo item to add.")
+                        .value_parser(ValueParser::new(todo::path::ItemPath::parse_item_path)),
+                )
+                .arg(
+                    arg!(-d --down "Search down through files instead of up.")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    arg!(-n --name "Set the name of the todo item.")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    arg!(-D --date "Set the date of the todo item.")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    arg!(-p --priority "Set the priority of the todo item.")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    arg!(-c --completed "Set whether the item is completed")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    arg!(-a --archived "Set whether the item is archived")
+                        .action(ArgAction::SetTrue),
+                )
+        )
+        .subcommand(
+            Command::new("get")
+                .about("Get info about a specific todo item.")
+                .arg(
+                    arg!(<TODO_PATH> "The path of the todo item to get.")
+                        .value_parser(ValueParser::new(todo::path::ItemPath::parse_item_path)),
+                )
+        )
+        .subcommand(
+            Command::new("move")
+                .about("Move a todo item to another location.")
+                .arg(
+                    arg!(<TODO_FROM> "The path of the todo item to move.")
+                        .value_parser(ValueParser::new(todo::path::ItemPath::parse_item_path)),
+                )
+                .arg(
+                    arg!(<TODO_TO> "The path to move the todo item to.")
+                        .value_parser(ValueParser::new(todo::path::ItemPath::parse_item_path)),
+                )
+                .arg(
+                    arg!(-d --down "Search down through files instead of up.")
+                        .action(ArgAction::SetTrue),
+                )
+        );
+    let matches = command.clone().get_matches();
 
-    match &cmd[..] {
-        "new" => new(&mut std::env::args().skip(2)),
-        "list" => list(&mut std::env::args().skip(2)),
-        "add" => add(&mut std::env::args().skip(2)),
-        "remove" => println!("remove"),
-        "complete" => complete(&mut std::env::args().skip(2)),
-        "toggle" => toggle(&mut std::env::args().skip(2)),
-        "" => println!("enter"),
-        _ => println!("Command '{}' not found", cmd),
+    match matches.subcommand() {
+        Some(("new", sub_matches)) => new(sub_matches
+            .get_one::<std::path::PathBuf>("PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+                .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf()),
+        Some(("next", _sub_matches)) => panic!("`todo next` has not been implemented yet."),
+        Some(("list", sub_matches)) => list(
+            sub_matches.get_flag("down"),
+            sub_matches
+                .get_one::<String>("format")
+                .expect("Format must be specified, but there should have been a default value.")
+                .to_string(),
+            sub_matches.get_one::<std::path::PathBuf>("PATH").unwrap_or(&path::PathBuf::from("./")).canonicalize()
+                    .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf()
+        ),
+        Some(("add", sub_matches)) => add(
+                sub_matches.get_one::<ItemPath>("TODO_PATH").expect("Expected an item path.").clone(),
+                Item {
+                    name : sub_matches.get_one::<String>("ITEM_NAME").expect("Expected an item name.").to_string(),
+                    date: String::new(),
+                    priority: 0,
+                    completed: false,
+                    items: vec![]
+                },
+                sub_matches.get_flag("down"),
+            ),
+        Some(("remove", _sub_matches)) => panic!("`todo remove` hos not been implemented yet."),
+        Some(("prune", _sub_matches)) => panic!("`todo prune` hos not been implemented yet."),
+        Some(("complete", sub_matches)) => complete(
+                sub_matches.get_one::<ItemPath>("TODO_PATH").expect("Expected an item path.").clone(),
+                sub_matches.get_flag("down"),
+            ),
+        Some(("toggle", sub_matches)) => toggle(
+                sub_matches.get_one::<ItemPath>("TODO_PATH").expect("Expected an item path.").clone(),
+                sub_matches.get_flag("down"),
+            ),
+        Some(("incomplete", sub_matches)) => incomplete(
+                sub_matches.get_one::<ItemPath>("TODO_PATH").expect("Expected an item path.").clone(),
+                sub_matches.get_flag("down"),
+            ),
+        Some(("edit", _sub_matches)) => panic!("`todo edit` hos not been implemented yet."),
+        Some(("get", _sub_matches)) => panic!("`todo get` hos not been implemented yet."),
+        Some(("move", _sub_matches)) => panic!("`todo move` hos not been implemented yet."),
+        _ => panic!("The TUI editor has not been implemented yet."),
     }
+
+    // Once I figure out how to do the man pages
+    // let out_dir = std::path::PathBuf::from(std::env::var_os("OUT_DIR").ok_or(std::io::ErrorKind::NotFound)?);
+    // let man = clap_mangen::Man::new(command);
+    // let mut buffer: Vec<u8> = Default::default();
+    // man.render(&mut buffer)?;
+    // std::fs::write(out_dir.join("todo.1"), buffer)?;
 }
 
 /// Create a .todo file in the current directory. Add the -f flag to overwrite an existing .todo file.
-fn new(args: &mut std::iter::Skip<std::env::Args>) {
-    if fs::exists("./.todo").unwrap_or(false) && args.next().unwrap_or(String::new()) != "-f" {
-        println!("'.todo' already exists.");
+fn new(path: std::path::PathBuf) {
+    let todo_path = path.join(".todo");
+    if fs::exists(&todo_path).unwrap_or(false) {
+        println!("'{}' already exists.", todo_path.display());
     } else {
-        fs::write("./.todo", "# New Todo\n\n").expect("'.todo' could not be created");
-        println!(
-            "Create '.todo' at {}",
-            fs::canonicalize("./.todo").unwrap().display()
-        );
+        fs::write(&todo_path, "# New Todo\n\n")
+            .expect(&format!("Could not create '{}'.", todo_path.display()));
+        println!("Created '{}'.", todo_path.display());
     }
 }
 
-/// Display all of the active todo lists
-fn list(args: &mut std::iter::Skip<std::env::Args>) {
-    let options: Vec<String> = args.collect();
+fn list(down: bool, format_string: String, path: std::path::PathBuf) {
+    let format = match &format_string[..] {
+        "html" => RenderFormat::HTML,
+        "html-class" => RenderFormat::HtmlClass,
+        "pango" => RenderFormat::Pango,
+        "plain" => RenderFormat::Plain,
+        _ => RenderFormat::ANSI,
+    };
 
-    let search_start = std::fs::canonicalize(".").unwrap();
+    let search_start = path;
 
     let paths: Vec<std::path::PathBuf>;
 
-    if options.contains(&"-d".to_string()) {
+    if down {
         paths = search_paths::search_down(&search_start);
     } else {
         paths = search_paths::search_up(search_start);
@@ -57,137 +297,78 @@ fn list(args: &mut std::iter::Skip<std::env::Args>) {
 
     lists.sort_by(|a, b| b.priority.cmp(&a.priority));
 
-    let format = if options.contains(&"--html".to_string()) {
-        RenderFormat::HTML
-    } else if options.contains(&"--html-class".to_string()) {
-        RenderFormat::HtmlClass
-    } else if options.contains(&"--pango".to_string()) {
-        RenderFormat::Pango
-    } else if options.contains(&"--plain".to_string()) {
-        RenderFormat::Plain
-    } else {
-        RenderFormat::ANSI
-    };
-
     for list in lists {
         println!("{}", list.clone().format(list.path).render(&format));
     }
 }
 
-fn add(args: &mut std::iter::Skip<std::env::Args>) {
-    let list_name_input = args.next().unwrap();
-    let item_path = args.next().unwrap();
-    let options: Vec<String> = args.collect();
+fn add(path: ItemPath, item: Item, down: bool) {
+    let mut list = search_paths::find_list(path.document.clone(), down).expect(&format!(
+        "Could not find a list with the name '{}'",
+        path.document.clone()
+    ));
 
-    let list_name = if list_name_input.starts_with("#") {
-        list_name_input[1..].to_string()
-    } else {
-        list_name_input
-    };
+    list.items.add_item(item.clone(), path.clone());
 
-    let item_path_components = item_path.split("/");
+    list.clone().save();
 
-    let item_name = item_path_components
-        .clone()
-        .last()
-        .unwrap_or("Unnamed Item");
+    println!(
+        "Added '{item_name}' to #{list_name}",
+        item_name = item.name,
+        list_name = list.name
+    );
+}
 
-    let new_item = item::Item {
-        name: item_name.to_string(),
-        priority: 0,
-        date: "".to_string(),
-        completed: false,
-        items: vec![],
-    };
+fn complete(path: ItemPath, down: bool) {
+    let mut list = search_paths::find_list(path.document.clone(), down).expect(&format!(
+        "Could not find a list with the name '{}'",
+        path.document.clone()
+    ));
 
-    let mut list =
-        search_paths::find_list(list_name.clone(), options.contains(&"-d".to_string())).unwrap();
+    let item = list.items.find(path.clone()).unwrap();
+    item.completed = true;
 
-    list.items
-        .add_item(new_item, item_path_components.collect());
+    println!(
+        "Completed '{item_name}' in #{list_name}.",
+        item_name = item.name,
+        list_name = list.name
+    );
 
     list.save();
-
-    println!("Added {item_path} to #{list_name}");
 }
 
-fn complete(args: &mut std::iter::Skip<std::env::Args>) {
-    let prefix = args.next().unwrap_or(String::new());
-    let options: Vec<String> = args.collect();
+fn toggle(path: ItemPath, down: bool) {
+    let mut list = search_paths::find_list(path.document.clone(), down).expect(&format!(
+        "Could not find a list with the name '{}'",
+        path.document.clone()
+    ));
 
-    let search_start = std::fs::canonicalize("./").unwrap();
+    let item = list.items.find(path.clone()).unwrap();
+    item.completed = !item.completed;
 
-    let paths: Vec<std::path::PathBuf>;
+    println!(
+        "Completed '{item_name}' in #{list_name}.",
+        item_name = item.name,
+        list_name = list.name
+    );
 
-    if options.contains(&"-d".to_string()) {
-        paths = search_paths::search_down(&search_start);
-    } else {
-        paths = search_paths::search_up(search_start);
-    }
-
-    for path in paths.into_iter().rev() {
-        let mut list = document::Document::from_path(&path);
-        let result = list.items.find(vec![&prefix]);
-
-        if result.is_ok() {
-            let unwrapped_item = result.unwrap();
-            unwrapped_item.completed = true;
-            println!(
-                "Marked '{name}' in list '{list}' as complete",
-                name = unwrapped_item.name,
-                list = list.name
-            );
-            list.save();
-            return;
-        } else {
-            println!(
-                "Could not find item '{path}' in list '{list}'.",
-                path = prefix.split("/").collect::<Vec<&str>>().join("*/"),
-                list = list.name
-            );
-        }
-    }
+    list.save();
 }
 
-fn toggle(args: &mut std::iter::Skip<std::env::Args>) {
-    let prefix = args.next().unwrap_or(String::new());
-    let options: Vec<String> = args.collect();
+fn incomplete(path: ItemPath, down: bool) {
+    let mut list = search_paths::find_list(path.document.clone(), down).expect(&format!(
+        "Could not find a list with the name '{}'",
+        path.document.clone()
+    ));
 
-    let search_start = std::fs::canonicalize(".").unwrap();
+    let item = list.items.find(path.clone()).unwrap();
+    item.completed = false;
 
-    let paths: Vec<std::path::PathBuf>;
+    println!(
+        "Completed '{item_name}' in #{list_name}.",
+        item_name = item.name,
+        list_name = list.name
+    );
 
-    if options.contains(&"-d".to_string()) {
-        paths = search_paths::search_down(&search_start);
-    } else {
-        paths = search_paths::search_up(search_start);
-    }
-
-    for path in paths.into_iter().rev() {
-        let mut list = document::Document::from_path(&path);
-        let result = list.items.find(vec![&prefix]);
-
-        if result.is_ok() {
-            let unwrapped_item = result.unwrap();
-            unwrapped_item.completed = !unwrapped_item.completed;
-            println!(
-                "Toggled '{name}' in list '{list}' it is now {status}",
-                name = unwrapped_item.name,
-                list = list.name,
-                status = if unwrapped_item.completed {
-                    "complete"
-                } else {
-                    "incomplete"
-                }
-            );
-            list.save();
-            return;
-        } else {
-            println!(
-                "Could not find item '{path}' in list '{list}'.",
-                path = prefix.split("/").collect::<Vec<&str>>().join("*/"),
-                list = list.name
-            );
-        }
-    }
+    list.save();
 }
