@@ -79,10 +79,6 @@ impl ItemPath {
             .starts_with(&self.item_prefixes[0].to_ascii_lowercase())
     }
 
-    pub fn shift(&mut self) {
-        self.item_prefixes = self.item_prefixes[1..].to_vec();
-    }
-
     pub fn shifted(self) -> ItemPath {
         ItemPath {
             document: self.document,

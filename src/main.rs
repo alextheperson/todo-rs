@@ -1,4 +1,4 @@
-use std::{fs, path};
+use std::fs;
 mod search_paths;
 mod todo;
 use clap::builder::PossibleValue;
@@ -64,7 +64,7 @@ fn main() {
                         ]),
                 )
                 .arg(
-                    arg!([PATH] "Specify an alternate path to create the new todo.")
+                    arg!([PATH] "Specify an alternate path to search from.")
                         .default_value("./")
                         .value_parser(value_parser!(std::path::PathBuf)),
                 )
@@ -108,8 +108,17 @@ fn main() {
             Command::new("prune")
                 .about("Archive all completed todo items.")
                 .arg(
-                    arg!(-s --single [PATH] "Prune only a single list.")
-                        .value_parser(ValueParser::new(todo::path::ItemPath::parse_item_path)),
+                    arg!([PATH] "Specify an alternate path to search from.")
+                        .default_value("./")
+                        .value_parser(value_parser!(std::path::PathBuf)),
+                )
+                .arg(
+                    arg!(-s --single "Prune only a single list.")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    arg!(-d --down "Search down through files instead of up.")
+                        .action(ArgAction::SetTrue),
                 )
         )
         .subcommand(
@@ -217,8 +226,11 @@ fn main() {
                 .get_one::<String>("format")
                 .expect("Format must be specified, but there should have been a default value.")
                 .to_string(),
-            sub_matches.get_one::<std::path::PathBuf>("PATH").unwrap_or(&path::PathBuf::from("./")).canonicalize()
-                    .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf()
+            sub_matches.get_one::<std::path::PathBuf>("PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+                    .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
+
+            sub_matches.get_flag("archived"),
+            !sub_matches.get_flag("completed"),
         ),
         Some(("add", sub_matches)) => add(
                 sub_matches.get_one::<ItemPath>("TODO_PATH").expect("Expected an item path.").clone(),
@@ -227,12 +239,18 @@ fn main() {
                     date: String::new(),
                     priority: 0,
                     completed: false,
+                    archived: false,
                     items: vec![]
                 },
                 sub_matches.get_flag("down"),
             ),
         Some(("remove", _sub_matches)) => panic!("`todo remove` hos not been implemented yet."),
-        Some(("prune", _sub_matches)) => panic!("`todo prune` hos not been implemented yet."),
+        Some(("prune", sub_matches)) => prune(
+            sub_matches.get_one::<std::path::PathBuf>("PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+                    .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
+                sub_matches.get_flag("single"),
+                sub_matches.get_flag("down"),
+),
         Some(("complete", sub_matches)) => complete(
                 sub_matches.get_one::<ItemPath>("TODO_PATH").expect("Expected an item path.").clone(),
                 sub_matches.get_flag("down"),
@@ -271,7 +289,13 @@ fn new(path: std::path::PathBuf) {
     }
 }
 
-fn list(down: bool, format_string: String, path: std::path::PathBuf) {
+fn list(
+    down: bool,
+    format_string: String,
+    path: std::path::PathBuf,
+    show_archived: bool,
+    show_completed: bool,
+) {
     let format = match &format_string[..] {
         "html" => RenderFormat::HTML,
         "html-class" => RenderFormat::HtmlClass,
@@ -297,7 +321,14 @@ fn list(down: bool, format_string: String, path: std::path::PathBuf) {
 
     lists.sort_by(|a, b| b.priority.cmp(&a.priority));
 
-    for list in lists {
+    for mut list in lists {
+        if !show_archived {
+            list.items.filter(|item| item.archived)
+        }
+        if !show_completed {
+            list.items.filter(|item| item.completed)
+        }
+
         println!("{}", list.clone().format(list.path).render(&format));
     }
 }
@@ -371,4 +402,29 @@ fn incomplete(path: ItemPath, down: bool) {
     );
 
     list.save();
+}
+
+fn prune(path: std::path::PathBuf, single: bool, down: bool) {
+    let search_start = path;
+
+    let paths = if single {
+        vec![search_start]
+    } else {
+        if down {
+            search_paths::search_down(&search_start)
+        } else {
+            search_paths::search_up(search_start)
+        }
+    };
+
+    for path in paths {
+        let mut document = document::Document::from_path(&path);
+        document.items.prune();
+        document.save();
+        println!(
+            "Pruned #{list_name} at '{list_path}'",
+            list_name = document.name,
+            list_path = document.path.display()
+        );
+    }
 }

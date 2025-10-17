@@ -4,6 +4,7 @@ use crate::output;
 #[derive(Debug, Clone)]
 pub struct Item {
     pub completed: bool,
+    pub archived: bool,
     pub priority: i16,
     pub date: String,
     pub name: String,
@@ -16,7 +17,8 @@ impl Item {
     pub fn from(input: String, sub_items: Vec<Item>) -> Item {
         let mut sections = input.split("\\");
 
-        let completed = &sections.next().unwrap_or("- [ ]").trim_start()[3..4] == "x";
+        let archived = &sections.clone().next().unwrap_or("- [ ]").trim_start()[3..4] == "a";
+        let completed = &sections.next().unwrap_or("- [ ]").trim_start()[3..4] == "x" || archived;
 
         let has_priority_value = sections.clone().next().unwrap_or("").parse::<i16>().is_ok();
         let priority: i16 = if has_priority_value {
@@ -48,6 +50,7 @@ impl Item {
             priority: priority,
             date: date,
             completed: completed,
+            archived: archived,
             items: children,
         }
     }
@@ -57,7 +60,13 @@ impl Item {
         let mut output = String::new();
 
         let indent = " ".repeat(depth);
-        let completed = if self.completed { "x" } else { " " };
+        let completed = if self.archived {
+            "a"
+        } else if self.completed {
+            "x"
+        } else {
+            " "
+        };
         let priority = self.priority;
         let date = &self.date;
         let name = &self.name;
@@ -145,7 +154,7 @@ impl Item {
         if self.date == "" {
             output_line.add(output::segment::OutputSegment::new(
                 &format!("{box} {priority} {name}",
-                    box = if self.completed { "▣" } else { "□" },
+                    box = if self.archived {"\u{24d0}"} else if self.completed { "▣" } else { "□" },
                     priority = self.priority,
                     name = self.name,
                 ),
@@ -155,7 +164,7 @@ impl Item {
         } else {
             output_line.add(output::segment::OutputSegment::new(
                 &format!("{box} {priority} ({date}) {name}",
-                    box = if self.completed { "▣" } else { "□" },
+                    box = if self.archived {"\u{24d0}"} else if self.completed { "▣" } else { "□" },
                     priority = self.priority,
                     name = self.name,
                     date = self.date,

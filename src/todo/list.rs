@@ -9,7 +9,9 @@ pub trait ItemList {
     fn to_save(&self) -> String;
     fn find(&mut self, path: ItemPath) -> Result<&mut item::Item, String>;
     fn add_item(&mut self, item: Item, path: ItemPath);
+    fn filter(&mut self, predicate: fn(&Item) -> bool);
     fn format(&self, lines: Vec<bool>) -> output::buffer::OutputBuffer;
+    fn prune(&mut self);
 }
 
 impl ItemList for List {
@@ -137,5 +139,31 @@ impl ItemList for List {
         }
 
         output
+    }
+
+    fn filter(&mut self, predicate: fn(&Item) -> bool) {
+        // This is terrible and I am so sorry.
+        let mut removed_items = 0;
+
+        for (i, item) in self.clone().into_iter().enumerate() {
+            if predicate(&item) {
+                self.remove(i - removed_items);
+                removed_items += 1;
+            }
+            if i > removed_items && self.len() > i - removed_items {
+                // This cannot be `item` beause it needs to be mutated
+                self[i - removed_items].items.filter(predicate);
+            }
+        }
+    }
+
+    fn prune(&mut self) {
+        for item in self {
+            if item.completed {
+                item.archived = true;
+            }
+
+            item.items.prune();
+        }
     }
 }

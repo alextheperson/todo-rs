@@ -79,7 +79,7 @@ impl Document {
         output
     }
 
-    pub fn save(self) {
+    pub fn save(&self) {
         std::fs::write(self.path.as_path().join(".todo"), self.to_string()).expect(&format!(
             "should have been able to save the '.todo' file at {}",
             self.path.display()
