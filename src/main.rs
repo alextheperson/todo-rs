@@ -1,12 +1,14 @@
-use std::fs;
-mod search_paths;
-mod todo;
 use clap::builder::PossibleValue;
 use clap::builder::ValueParser;
+use output::Render;
+use std::fs;
 use todo::document;
 use todo::list::ItemList;
+
+mod date;
 mod output;
-use output::Render;
+mod search_paths;
+mod todo;
 
 use crate::output::RenderFormat;
 use crate::todo::item::Item;
@@ -236,7 +238,7 @@ fn main() {
                 sub_matches.get_one::<ItemPath>("TODO_PATH").expect("Expected an item path.").clone(),
                 Item {
                     name : sub_matches.get_one::<String>("ITEM_NAME").expect("Expected an item name.").to_string(),
-                    date: String::new(),
+                    date: None,
                     priority: 0,
                     completed: false,
                     archived: false,
@@ -281,11 +283,11 @@ fn main() {
 fn new(path: std::path::PathBuf) {
     let todo_path = path.join(".todo");
     if fs::exists(&todo_path).unwrap_or(false) {
-        println!("'{}' already exists.", todo_path.display());
+        println!("[LIST]: '{}' already exists.", todo_path.display());
     } else {
         fs::write(&todo_path, "# New Todo\n\n")
             .expect(&format!("Could not create '{}'.", todo_path.display()));
-        println!("Created '{}'.", todo_path.display());
+        println!("[LIST]: Created '{}'.", todo_path.display());
     }
 }
 
@@ -344,7 +346,7 @@ fn add(path: ItemPath, item: Item, down: bool) {
     list.clone().save();
 
     println!(
-        "Added '{item_name}' to #{list_name}",
+        "[LIST]: Added '{item_name}' to #{list_name}",
         item_name = item.name,
         list_name = list.name
     );
@@ -360,7 +362,7 @@ fn complete(path: ItemPath, down: bool) {
     item.completed = true;
 
     println!(
-        "Completed '{item_name}' in #{list_name}.",
+        "[LIST]: Completed '{item_name}' in #{list_name}.",
         item_name = item.name,
         list_name = list.name
     );
@@ -378,7 +380,7 @@ fn toggle(path: ItemPath, down: bool) {
     item.completed = !item.completed;
 
     println!(
-        "Completed '{item_name}' in #{list_name}.",
+        "[LIST]: Toggled '{item_name}' in #{list_name}.",
         item_name = item.name,
         list_name = list.name
     );
@@ -396,7 +398,7 @@ fn incomplete(path: ItemPath, down: bool) {
     item.completed = false;
 
     println!(
-        "Completed '{item_name}' in #{list_name}.",
+        "[LIST]: marked '{item_name}' in #{list_name} as incomplete.",
         item_name = item.name,
         list_name = list.name
     );
@@ -422,7 +424,7 @@ fn prune(path: std::path::PathBuf, single: bool, down: bool) {
         document.items.prune();
         document.save();
         println!(
-            "Pruned #{list_name} at '{list_path}'",
+            "[LIST]: Pruned #{list_name} at '{list_path}'",
             list_name = document.name,
             list_path = document.path.display()
         );

@@ -1,4 +1,6 @@
 use crate::ItemList;
+use crate::date;
+use crate::date::Date;
 use crate::output;
 
 #[derive(Debug, Clone)]
@@ -6,7 +8,7 @@ pub struct Item {
     pub completed: bool,
     pub archived: bool,
     pub priority: i16,
-    pub date: String,
+    pub date: Option<date::Date>,
     pub name: String,
     pub items: crate::todo::list::List,
 }
@@ -29,9 +31,19 @@ impl Item {
 
         let has_date_value = (sections.clone().count() > 1) && sections.clone().next().is_some();
         let date = if has_date_value {
-            sections.next().unwrap_or("").trim().to_string()
+            let section = &sections.next().unwrap().trim().to_string();
+            if section != "" {
+                let parsed_date = Date::from(section);
+                if parsed_date.is_err() {
+                    None
+                } else {
+                    Some(parsed_date.unwrap())
+                }
+            } else {
+                None
+            }
         } else {
-            "".to_string()
+            None
         };
 
         let last_section = sections.collect::<Vec<&str>>().join("\\");
@@ -68,7 +80,11 @@ impl Item {
             " "
         };
         let priority = self.priority;
-        let date = &self.date;
+        let date = if self.date.is_some() {
+            &self.date.clone().unwrap().display()
+        } else {
+            ""
+        };
         let name = &self.name;
 
         let mut children = String::new();
@@ -77,16 +93,38 @@ impl Item {
             children += &child.to_string(depth + 1);
         }
 
+        output += &format!("{indent}- [{completed}] ");
+        if self.priority != 0 {
+            output += &format!("\\{priority}");
+        }
+        if self.date.is_some() {
+            output += &format!("\\{date}");
+        }
+        if self.date.is_some() || self.priority != 0 {
+            output += &format!("\\ ");
+        }
+        output += &format!("{name}\n");
+
         if self.items.len() > 0 {
-            output += &format!(
-                "{indent}- [{completed}] \\{priority}\\{date}\\ {name}\n{children}",
-                children = children
-            );
-        } else {
-            output += &format!("{indent}- [{completed}] \\{priority}\\{date}\\ {name}\n");
+            output += &children;
         }
 
         output
+    }
+
+    /// This is a number from 0 to 7+, that represents how close today is to the item's date
+    /// It is more than 7 if the day has already passed.
+    /// It starts ticking up at 7 days until the date
+    pub fn urgency(&self) -> Option<i16> {
+        if self.date.is_some() {
+            let distance = self.date.unwrap().distance(Date::today());
+            if distance > 7 {
+                return None;
+            } else {
+                return Some((7 - distance).try_into().unwrap());
+            }
+        }
+        None
     }
 
     pub fn format(&self, end: bool, lines: Vec<bool>) -> output::buffer::OutputBuffer {
@@ -126,8 +164,32 @@ impl Item {
         let mut new_lines = lines.clone();
         new_lines.push(end);
 
+        let priority = if self.completed {
+            self.priority
+        } else {
+            self.priority + self.urgency().unwrap_or(0)
+        };
+
+        let date = if !self.completed && self.urgency().is_some() {
+            &format!(
+                "{num} day{s}",
+                num = 7 - self.urgency().unwrap(),
+                s = if 7 - self.urgency().unwrap() == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            )
+        } else {
+            if self.date.is_some() {
+                &self.date.clone().unwrap().display()
+            } else {
+                ""
+            }
+        };
+
         // Set colors based on the priority
-        let color = match self.priority {
+        let color = match priority {
             i16::MIN..=-7 => output::color::Color::Green,
             -6 => output::color::Color::Green,
             -5 => output::color::Color::Green,
@@ -151,11 +213,11 @@ impl Item {
             output::style::Style::normal()
         };
 
-        if self.date == "" {
+        if self.date.is_none() {
             output_line.add(output::segment::OutputSegment::new(
                 &format!("{box} {priority} {name}",
                     box = if self.archived {"\u{24d0}"} else if self.completed { "▣" } else { "□" },
-                    priority = self.priority,
+                    priority = priority,
                     name = self.name,
                 ),
                 color,
@@ -165,10 +227,9 @@ impl Item {
             output_line.add(output::segment::OutputSegment::new(
                 &format!("{box} {priority} ({date}) {name}",
                     box = if self.archived {"\u{24d0}"} else if self.completed { "▣" } else { "□" },
-                    priority = self.priority,
+                    priority = priority,
                     name = self.name,
-                    date = self.date,
-                ),
+                    date = date                ),
                 color,
                 style,
             ));
