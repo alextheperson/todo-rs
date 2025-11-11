@@ -325,10 +325,10 @@ fn list(
 
     for mut list in lists {
         if !show_archived {
-            list.items.filter(|item| item.archived)
+            list.items.recursive_filter(|item| item.archived)
         }
         if !show_completed {
-            list.items.filter(|item| item.completed)
+            list.items.recursive_filter(|item| item.completed)
         }
 
         println!("{}", list.clone().format(list.path).render(&format));

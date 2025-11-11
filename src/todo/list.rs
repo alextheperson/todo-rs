@@ -1,22 +1,23 @@
-use crate::output;
-use crate::todo::item::{self, Item};
+use crate::output::buffer::OutputBuffer;
+use crate::todo::item::Item;
 use crate::todo::path::ItemPath;
+use std::cmp::Ordering;
 
 pub type List = Vec<Item>;
 
 pub trait ItemList {
     fn parse(file: String) -> List;
     fn to_save(&self) -> String;
-    fn find(&mut self, path: ItemPath) -> Result<&mut item::Item, String>;
+    fn find(&mut self, path: ItemPath) -> Result<&mut Item, String>;
     fn add_item(&mut self, item: Item, path: ItemPath);
-    fn filter(&mut self, predicate: fn(&Item) -> bool);
-    fn format(&self, lines: Vec<bool>) -> output::buffer::OutputBuffer;
+    fn recursive_filter(&mut self, predicate: fn(&Item) -> bool);
+    fn format(&self, lines: Vec<bool>) -> OutputBuffer;
     fn prune(&mut self);
 }
 
 impl ItemList for List {
     fn parse(file: String) -> List {
-        let mut items: Vec<item::Item> = vec![];
+        let mut items: Vec<Item> = vec![];
 
         let content = file.lines();
 
@@ -42,7 +43,7 @@ impl ItemList for List {
                         .count();
             }
 
-            let mut sub_items: Vec<item::Item> = vec![];
+            let mut sub_items: Vec<Item> = vec![];
 
             // If we rise out of the level that we start at
             if current_indentation < starting_indentation {
@@ -63,15 +64,15 @@ impl ItemList for List {
                 }
             }
 
-            items.push(item::Item::from(line.to_string(), sub_items));
+            items.push(Item::from(line.to_string(), sub_items));
         }
 
         items.sort_by(|a, b| {
             if a.completed ^ b.completed {
                 if a.completed && !b.completed {
-                    return std::cmp::Ordering::Greater;
+                    return Ordering::Greater;
                 } else {
-                    return std::cmp::Ordering::Less;
+                    return Ordering::Less;
                 }
             } else {
                 return b.priority.cmp(&a.priority);
@@ -92,7 +93,7 @@ impl ItemList for List {
     }
 
     // Get a mutable reference to an item that matches a certain path.
-    fn find(&mut self, path: ItemPath) -> Result<&mut item::Item, String> {
+    fn find(&mut self, path: ItemPath) -> Result<&mut Item, String> {
         let mut matching_itmes = vec![];
 
         for (i, item) in self.clone().into_iter().enumerate() {
@@ -130,8 +131,8 @@ impl ItemList for List {
         }
     }
 
-    fn format(&self, lines: Vec<bool>) -> output::buffer::OutputBuffer {
-        let mut output = output::buffer::OutputBuffer::new();
+    fn format(&self, lines: Vec<bool>) -> OutputBuffer {
+        let mut output = OutputBuffer::new();
 
         for (i, item) in self.clone().into_iter().enumerate() {
             let is_end = i >= self.len() - 1;
@@ -141,18 +142,16 @@ impl ItemList for List {
         output
     }
 
-    fn filter(&mut self, predicate: fn(&Item) -> bool) {
-        // This is terrible and I am so sorry.
+    fn recursive_filter(&mut self, predicate: fn(&Item) -> bool) {
+        // I don't like this, but I don't think there is a particularly better way of doing this.
         let mut removed_items = 0;
 
         for (i, item) in self.clone().into_iter().enumerate() {
             if predicate(&item) {
                 self.remove(i - removed_items);
                 removed_items += 1;
-            }
-            if i > removed_items && self.len() > i - removed_items {
-                // This cannot be `item` beause it needs to be mutated
-                self[i - removed_items].items.filter(predicate);
+            } else {
+                self[i - removed_items].items.recursive_filter(predicate);
             }
         }
     }
