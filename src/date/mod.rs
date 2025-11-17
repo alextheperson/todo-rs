@@ -52,7 +52,7 @@ impl Date {
 
     pub fn month_to_short(month: &usize) -> &str {
         let short_months = [
-            "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
         ];
 
         short_months[*month - 1]
@@ -125,7 +125,7 @@ mod tests {
             year: Date::today().year + 1,
         };
 
-        date = Date::from("5 October").unwrap();
+        date = Date::from("5 Oct").unwrap();
         assert_eq!(date, goal_3);
 
         let goal_4 = Date {
