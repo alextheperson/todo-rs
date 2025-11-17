@@ -1,4 +1,5 @@
 use crate::ItemList;
+use crate::date::Date;
 use crate::output;
 use crate::todo::list;
 
@@ -7,8 +8,9 @@ pub struct Document {
     pub name: String,
     pub path: std::path::PathBuf,
     pub priority: i16,
-    pub date: String,
+    pub date: Option<Date>,
     pub items: list::List,
+    pub archived: bool,
 }
 
 impl Document {
@@ -17,7 +19,8 @@ impl Document {
 
         let mut name = "Unnamed Todo List".to_string();
         let mut priority = 0;
-        let mut date = String::new();
+        let mut date = None;
+        let mut archived = false;
         let mut lines_to_skip = 0;
 
         for (i, line) in lines.clone().enumerate() {
@@ -30,8 +33,13 @@ impl Document {
                     let property = parts.next().unwrap();
 
                     match property {
-                        "priority" => priority = parts.next().unwrap().parse().unwrap(),
-                        "date" => date = parts.next().unwrap().to_string(),
+                        "priority" => {
+                            priority = parts.collect::<Vec<&str>>().join(" ").parse().unwrap();
+                        }
+                        "date" => {
+                            date = Date::from(&parts.clone().collect::<Vec<&str>>().join(" ")).ok();
+                        }
+                        "archived" => archived = true,
                         _ => println!("Unknown property! '{}'", property),
                     }
                 }
@@ -51,6 +59,7 @@ impl Document {
             priority: priority,
             date: date,
             items: items,
+            archived: archived,
         }
     }
 
@@ -69,8 +78,15 @@ impl Document {
         let mut output = String::new();
 
         output += &format!("# {title}\n", title = &self.name);
-        output += &format!("# priority {priority}\n", priority = &self.priority);
-        output += &format!("# date {date}\n", date = &self.date);
+        if self.priority != 0 {
+            output += &format!("# priority {priority}\n", priority = &self.priority);
+        }
+        if self.date.is_some() {
+            output += &format!("# date {date}\n", date = &self.date.unwrap().display());
+        }
+        if self.archived {
+            output += &format!("# archived\n");
+        }
 
         output += "\n";
 
@@ -97,9 +113,13 @@ impl Document {
             *output::style::Style::new().dim(),
         ));
 
-        if self.date != String::new() {
+        if self.date.is_some() {
             first_line.add(output::segment::OutputSegment::new(
-                &format!("{name} - {date} ", name = self.name, date = self.date),
+                &format!(
+                    "{name} - {date} ",
+                    name = self.name,
+                    date = self.date.unwrap().display()
+                ),
                 output::color::Color::Default,
                 output::style::Style::normal(),
             ));

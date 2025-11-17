@@ -11,6 +11,7 @@ mod search_paths;
 mod todo;
 
 use crate::output::RenderFormat;
+use crate::todo::document::Document;
 use crate::todo::item::Item;
 use crate::todo::path::ItemPath;
 
@@ -322,6 +323,13 @@ fn list(
         .collect::<Vec<document::Document>>();
 
     lists.sort_by(|a, b| b.priority.cmp(&a.priority));
+
+    if !show_archived {
+        lists = lists
+            .into_iter()
+            .filter(|a| !a.archived)
+            .collect::<Vec<Document>>();
+    }
 
     for mut list in lists {
         if !show_archived {
