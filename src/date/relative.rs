@@ -115,6 +115,10 @@ impl Date {
     }
 
     fn parse_day_of_the_week(input: &str) -> Result<Date, String> {
+        if input == "" {
+            return Err(format!("Cannot parse empty string to day of the week."));
+        }
+
         let days = [
             "monday",
             "tuesday",
