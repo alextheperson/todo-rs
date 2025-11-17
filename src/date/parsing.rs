@@ -60,7 +60,7 @@ impl Date {
             return Ok(date.unwrap());
         };
 
-        Err("Could not parse the date.")
+        Err("Could not parse the three-word date.")
     }
 
     fn parse_two_values<'a>(w1: &'a str, w2: &'a str) -> Result<Date, &'a str> {
@@ -198,11 +198,12 @@ impl Date {
         Ok(value)
     }
 
-    fn parse_month(month: &str) -> Result<usize, &str> {
-        let short_months = [
-            "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
-        ];
-        let long_months = [
+    pub fn parse_month(month: &str) -> Result<usize, &str> {
+        if month == "" {
+            return Err("Cannot parse empty string as month");
+        }
+
+        let month_names = [
             "january",
             "february",
             "march",
@@ -225,18 +226,10 @@ impl Date {
                 return Err("Month was out of range");
             }
         } else {
-            if short_months.contains(&&month.to_ascii_lowercase()[..]) {
-                return Ok(short_months
-                    .iter()
-                    .position(|s| s == &month.to_ascii_lowercase())
-                    .unwrap()
-                    + 1);
-            } else if long_months.contains(&&month.to_ascii_lowercase()[..]) {
-                return Ok(long_months
-                    .iter()
-                    .position(|s| s == &month.to_ascii_lowercase())
-                    .unwrap()
-                    + 1);
+            for (i, possible_month) in month_names.into_iter().enumerate() {
+                if possible_month.starts_with(&month.to_ascii_lowercase()) {
+                    return Ok(i + 1);
+                }
             }
         }
 

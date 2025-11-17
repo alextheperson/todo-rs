@@ -75,6 +75,25 @@ impl Date {
     }
 
     fn parse_relative_month(input: &str) -> Result<Date, String> {
+        if input == "" {
+            return Err("Cannot parse an empty string to a month.".to_string());
+        }
+
+        let month = Date::parse_month(input);
+        if month.is_ok() {
+            let current_month = Date::today().month;
+            let mut year = Date::today().year;
+            if month.unwrap() <= current_month {
+                year += 1;
+            }
+
+            return Ok(Date {
+                day: 1,
+                month: month.unwrap(),
+                year: year,
+            });
+        }
+
         if input.starts_with("in ") {
             if input.ends_with(" month") || input.ends_with(" months") {
                 let offset = input.split(" ").collect::<Vec<&str>>()[1]

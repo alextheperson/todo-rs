@@ -5,6 +5,8 @@ use chrono::offset::Local;
 pub mod parsing;
 pub mod relative;
 
+/// Represents a date that a list or item might be due.
+/// It uses 1-based indexing for the days and months.
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Date {
     day: usize,
