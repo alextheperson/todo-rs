@@ -23,13 +23,22 @@
             src = craneLib.cleanCargoSource ./.;
             strictDeps = true;
 
-            buildInputs = [
+            nativeBuildInputs = [
+              pkgs.installShellFiles
               # Add additional build inputs here
             ]
             ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
               # Additional darwin specific inputs can be set here
               pkgs.libiconv
             ];
+
+            postInstall = ''
+              # This is cursed, but for some reason, I cannot
+              # refer to the directory I want by name, I have to
+              # do it indirectly like this
+              installShellCompletion target/release/build/todo-rs*/out/todo.{bash,fish}
+              installShellCompletion --zsh target/release/build/todo-rs*/out/_todo
+            '';
           };
 
           todo-rs = craneLib.buildPackage (
@@ -58,13 +67,8 @@
             # Inherit inputs from checks.
             checks = self.checks.${system};
 
-            # Additional dev-shell environment variables can be set directly
-            # MY_CUSTOM_DEVELOPMENT_VAR = "something else";
+            inputsFrom = [ todo-rs ];
 
-            # Extra inputs can be added here; cargo and rustc are provided by default.
-            packages = with pkgs; [
-              # pkgs.ripgrep
-            ];
             shellHook = ''
               rustc -V
               cargo -V
