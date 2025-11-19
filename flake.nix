@@ -23,8 +23,7 @@
             src = craneLib.cleanCargoSource ./.;
             strictDeps = true;
 
-            nativeBuildInputs = [
-              pkgs.installShellFiles
+            buildInputs = [
               # Add additional build inputs here
             ]
             ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
@@ -32,7 +31,12 @@
               pkgs.libiconv
             ];
 
+            nativeBuildInputs = [
+              pkgs.installShellFiles
+            ];
+
             postInstall = ''
+              installManPage target/release/build/todo-rs-*/out/todo.1
               # This is cursed, but for some reason, I cannot
               # refer to the directory I want by name, I have to
               # do it indirectly like this

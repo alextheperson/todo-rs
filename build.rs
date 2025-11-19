@@ -1,8 +1,10 @@
 use clap::builder::PossibleValue;
 use clap::{ArgAction, Command, ValueEnum, arg, value_parser};
 use clap_complete::{Shell, generate_to};
+use clap_mangen::Man;
 use std::env;
 use std::io::Error;
+use std::path::PathBuf;
 
 fn main() -> Result<(), Error> {
     let Some(outdir) = env::var_os("OUT_DIR") else {
@@ -14,9 +16,16 @@ fn main() -> Result<(), Error> {
         generate_to(shell, &mut cmd, "todo", &outdir)?;
     }
 
+    let man = Man::new(cmd);
+    let mut buffer: Vec<u8> = Default::default();
+    man.render(&mut buffer)?;
+
+    std::fs::write(PathBuf::from(outdir).join("todo.1"), buffer)?;
+
     Ok(())
 }
 
+// TODO: Figure out how to do this in a way that won't summon the devil.
 fn build() -> Command {
     Command::new("todo")
         .version("1.0")

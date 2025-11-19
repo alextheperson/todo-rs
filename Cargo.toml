@@ -17,3 +17,4 @@ clap_complete = "4.5.60"
 [build-dependencies]
 clap = "4.5.48"
 clap_complete = "4.5.60"
+clap_mangen = "0.2.31"
