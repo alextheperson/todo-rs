@@ -1,5 +1,6 @@
 use output::Render;
 use std::fs;
+use std::path::PathBuf;
 use todo::document;
 use todo::list::ItemList;
 
@@ -10,6 +11,7 @@ mod search_paths;
 mod todo;
 
 use crate::output::RenderFormat;
+use crate::output::line::OutputLine;
 use crate::todo::document::Document;
 use crate::todo::item::Item;
 use crate::todo::path::ItemPath;
@@ -21,21 +23,30 @@ fn main() {
 
     match matches.subcommand() {
         Some(("new", sub_matches)) => new(sub_matches
-            .get_one::<std::path::PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
-                .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf()),
-        Some(("next", _sub_matches)) => panic!("`todo next` has not been implemented yet."),
+            .get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+                .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf()
+            ),
+        Some(("next", sub_matches)) => next(
+            sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+                .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(), 
+            sub_matches.get_flag("children"),
+            sub_matches.get_flag("down"),
+            sub_matches.get_one::<String>("format")
+                .expect("Format must be specified, but there should have been a default value.")
+                .to_string(),
+            ),
         Some(("list", sub_matches)) => list(
             sub_matches.get_flag("down"),
             sub_matches
                 .get_one::<String>("format")
                 .expect("Format must be specified, but there should have been a default value.")
                 .to_string(),
-            sub_matches.get_one::<std::path::PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+            sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
                     .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
 
             sub_matches.get_flag("archived"),
             !sub_matches.get_flag("completed"),
-        ),
+            ),
         Some(("add", sub_matches)) => add(
                 parse_item_path_arg(sub_matches),
                 Item {
@@ -50,11 +61,11 @@ fn main() {
             ),
         Some(("remove", _sub_matches)) => panic!("`todo remove` hos not been implemented yet."),
         Some(("prune", sub_matches)) => prune(
-            sub_matches.get_one::<std::path::PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+            sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
                     .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
                 sub_matches.get_flag("single"),
                 sub_matches.get_flag("down"),
-),
+            ),
         Some(("complete", sub_matches)) => complete(
                 parse_item_path_arg(sub_matches),
                 sub_matches.get_flag("down"),
@@ -88,7 +99,7 @@ fn parse_item_path_arg(matches: &clap::ArgMatches) -> ItemPath {
     ))
 }
 
-fn new(path: std::path::PathBuf) {
+fn new(path: PathBuf) {
     let todo_path = path.join(".todo");
     if fs::exists(&todo_path).unwrap_or(false) {
         println!("[LIST]: '{}' already exists.", todo_path.display());
@@ -99,10 +110,54 @@ fn new(path: std::path::PathBuf) {
     }
 }
 
+fn next(path: PathBuf, show_children: bool, down: bool, format_string: String) {
+    let format = match &format_string[..] {
+        "html" => RenderFormat::HTML,
+        "html-class" => RenderFormat::HtmlClass,
+        "pango" => RenderFormat::Pango,
+        "plain" => RenderFormat::Plain,
+        _ => RenderFormat::ANSI,
+    };
+
+    let paths: Vec<PathBuf>;
+
+    if down {
+        paths = search_paths::search_down(&path);
+    } else {
+        paths = search_paths::search_up(path);
+    }
+
+    let mut lists = paths
+        .into_iter()
+        .map(|val| document::Document::from_path(&val))
+        .collect::<Vec<document::Document>>();
+
+    // Remove archived lists
+    lists = lists
+        .into_iter()
+        .filter(|a| !a.archived)
+        .rev()
+        .collect::<Vec<Document>>();
+
+    lists.sort_by(|a, b| b.priority.cmp(&a.priority));
+    let mut top_list = lists[0].clone();
+
+    top_list.items.recursive_filter(|item| item.archived);
+    top_list.items.sort_by(|a, b| b.priority.cmp(&a.priority));
+    let top_item = top_list.items[0].clone();
+
+    println!(
+        "{}",
+        top_item
+            .format_detail(show_children, false, vec![])
+            .render(&format)
+    );
+}
+
 fn list(
     down: bool,
     format_string: String,
-    path: std::path::PathBuf,
+    path: PathBuf,
     show_archived: bool,
     show_completed: bool,
 ) {
@@ -116,7 +171,7 @@ fn list(
 
     let search_start = path;
 
-    let paths: Vec<std::path::PathBuf>;
+    let paths: Vec<PathBuf>;
 
     if down {
         paths = search_paths::search_down(&search_start);
@@ -146,8 +201,11 @@ fn list(
             list.items.recursive_filter(|item| item.completed)
         }
 
-        println!("{}", list.clone().format(list.path).render(&format));
+        print!("{}", list.clone().format(list.path).render(&format));
+        print!("{}", OutputLine::newline(&format));
+        print!("{}", OutputLine::newline(&format));
     }
+    println!("");
 }
 
 fn add(path: ItemPath, item: Item, down: bool) {
@@ -221,7 +279,7 @@ fn incomplete(path: ItemPath, down: bool) {
     list.save();
 }
 
-fn prune(path: std::path::PathBuf, single: bool, down: bool) {
+fn prune(path: PathBuf, single: bool, down: bool) {
     let search_start = path;
 
     let paths = if single {

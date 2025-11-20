@@ -16,6 +16,13 @@ impl OutputLine {
 
         self
     }
+
+    pub fn newline(format: &RenderFormat) -> &'static str {
+        match format {
+            RenderFormat::Plain | RenderFormat::ANSI | RenderFormat::Pango => return "\n",
+            RenderFormat::HTML | RenderFormat::HtmlClass => return "<br>",
+        }
+    }
 }
 
 impl Render for OutputLine {

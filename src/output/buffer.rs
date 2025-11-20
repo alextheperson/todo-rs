@@ -31,17 +31,11 @@ impl Render for OutputBuffer {
     fn render(self, format: &RenderFormat) -> String {
         let mut output = String::new();
 
-        for line in self.lines {
+        for (i, line) in self.lines.clone().into_iter().enumerate() {
             output += &line.render(&format);
-            match format {
-                RenderFormat::Plain | RenderFormat::ANSI | RenderFormat::Pango => output += "\n",
-                RenderFormat::HTML | RenderFormat::HtmlClass => output += "<br>",
+            if i < self.lines.len() - 1 {
+                output += OutputLine::newline(format);
             }
-        }
-
-        match format {
-            RenderFormat::Plain | RenderFormat::ANSI | RenderFormat::Pango => output += "\n",
-            RenderFormat::HTML | RenderFormat::HtmlClass => output += "<br>",
         }
 
         output
