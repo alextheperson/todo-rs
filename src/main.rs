@@ -21,7 +21,7 @@ fn main() {
 
     match matches.subcommand() {
         Some(("new", sub_matches)) => new(sub_matches
-            .get_one::<std::path::PathBuf>("PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+            .get_one::<std::path::PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
                 .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf()),
         Some(("next", _sub_matches)) => panic!("`todo next` has not been implemented yet."),
         Some(("list", sub_matches)) => list(
@@ -30,14 +30,14 @@ fn main() {
                 .get_one::<String>("format")
                 .expect("Format must be specified, but there should have been a default value.")
                 .to_string(),
-            sub_matches.get_one::<std::path::PathBuf>("PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+            sub_matches.get_one::<std::path::PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
                     .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
 
             sub_matches.get_flag("archived"),
             !sub_matches.get_flag("completed"),
         ),
         Some(("add", sub_matches)) => add(
-                sub_matches.get_one::<ItemPath>("TODO_PATH").expect("Expected an item path.").clone(),
+                parse_item_path_arg(sub_matches),
                 Item {
                     name : sub_matches.get_one::<String>("ITEM_NAME").expect("Expected an item name.").to_string(),
                     date: None,
@@ -50,38 +50,44 @@ fn main() {
             ),
         Some(("remove", _sub_matches)) => panic!("`todo remove` hos not been implemented yet."),
         Some(("prune", sub_matches)) => prune(
-            sub_matches.get_one::<std::path::PathBuf>("PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+            sub_matches.get_one::<std::path::PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
                     .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
                 sub_matches.get_flag("single"),
                 sub_matches.get_flag("down"),
 ),
         Some(("complete", sub_matches)) => complete(
-                sub_matches.get_one::<ItemPath>("TODO_PATH").expect("Expected an item path.").clone(),
+                parse_item_path_arg(sub_matches),
                 sub_matches.get_flag("down"),
             ),
         Some(("toggle", sub_matches)) => toggle(
-                sub_matches.get_one::<ItemPath>("TODO_PATH").expect("Expected an item path.").clone(),
+                parse_item_path_arg(sub_matches),
                 sub_matches.get_flag("down"),
             ),
         Some(("incomplete", sub_matches)) => incomplete(
-                sub_matches.get_one::<ItemPath>("TODO_PATH").expect("Expected an item path.").clone(),
+                parse_item_path_arg(sub_matches),
                 sub_matches.get_flag("down"),
             ),
-        Some(("edit", _sub_matches)) => panic!("`todo edit` hos not been implemented yet."),
-        Some(("get", _sub_matches)) => panic!("`todo get` hos not been implemented yet."),
-        Some(("move", _sub_matches)) => panic!("`todo move` hos not been implemented yet."),
+        Some(("edit", _sub_matches)) => panic!("`todo edit` has not been implemented yet."),
+        Some(("get", _sub_matches)) => panic!("`todo get` has not been implemented yet."),
+        Some(("move", _sub_matches)) => panic!("`todo move` has not been implemented yet."),
         _ => panic!("The TUI editor has not been implemented yet."),
     }
-
-    // Once I figure out how to do the man pages
-    // let out_dir = std::path::PathBuf::from(std::env::var_os("OUT_DIR").ok_or(std::io::ErrorKind::NotFound)?);
-    // let man = clap_mangen::Man::new(command);
-    // let mut buffer: Vec<u8> = Default::default();
-    // man.render(&mut buffer)?;
-    // std::fs::write(out_dir.join("todo.1"), buffer)?;
 }
 
-/// Create a .todo file in the current directory. Add the -f flag to overwrite an existing .todo file.
+/// This parses the <ITEM_PATH> arg into an ItemPath. I can't do this with clap because I can't
+/// import anything into commands.rs because it is include!()ed in build.rs
+fn parse_item_path_arg(matches: &clap::ArgMatches) -> ItemPath {
+    let provided_path = matches
+        .get_one::<String>("ITEM_PATH")
+        .expect("Expected an item path.")
+        .clone();
+
+    ItemPath::try_from(&provided_path).expect(&format!(
+        "Could not parse the item path '{}'.",
+        &provided_path
+    ))
+}
+
 fn new(path: std::path::PathBuf) {
     let todo_path = path.join(".todo");
     if fs::exists(&todo_path).unwrap_or(false) {

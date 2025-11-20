@@ -1,22 +1,22 @@
 use clap::builder::PossibleValue;
-use clap::builder::ValueParser;
+// use clap::builder::ValueParser;
 use clap::{ArgAction, Command, arg, value_parser};
 
-use crate::todo::path::ItemPath;
+// use crate::todo::path::ItemPath;
 
 pub fn build() -> Command {
     Command::new("todo")
         .version("1.0")
         .about("Manage the items that you need to do.\n\nWith no arguments, it opens a TUI to edit your .todo list")
                 .arg(
-                    arg!([PATH] "Specify the PATH of the `.todo` to edit.")
+                    arg!([FILE_PATH] "Specify the PATH of the `.todo` to edit.")
                         .value_parser(value_parser!(std::path::PathBuf)),
                 )
         .subcommand(
             Command::new("new")
                 .about("Create a new `.todo` in the current directory.")
                 .arg(
-                    arg!([PATH] "Specify an alternate path to create the new todo.")
+                    arg!([FILE_PATH] "Specify an alternate path to create the new todo.")
                         .default_value("./")
                         .value_parser(value_parser!(std::path::PathBuf)),
                 ),
@@ -25,7 +25,7 @@ pub fn build() -> Command {
             Command::new("next")
                 .about("Create a new `.tood` in the current directory.")
                 .arg(
-                    arg!([PATH] "An alternate path in which to look for the next todo.")
+                    arg!([FILE_PATH] "An alternate path in which to look for the next todo.")
                         .default_value("./")
                         .value_parser(value_parser!(std::path::PathBuf)),
                 ),
@@ -53,7 +53,7 @@ pub fn build() -> Command {
                         ]),
                 )
                 .arg(
-                    arg!([PATH] "Specify an alternate path to search from.")
+                    arg!([FILE_PATH] "Specify an alternate path to search from.")
                         .default_value("./")
                         .value_parser(value_parser!(std::path::PathBuf)),
                 )
@@ -70,8 +70,8 @@ pub fn build() -> Command {
             Command::new("add")
                 .about("Add an item to a todo list.")
                 .arg(
-                    arg!(<TODO_PATH> "The path of the todo item to add.")
-                        .value_parser(ValueParser::new(ItemPath::parse_item_path)),
+                    arg!(<ITEM_PATH> "The path of the todo item to add.")
+                        // .value_parser(ValueParser::new(ItemPath::parse_item_path)),
                 )
                     .arg(arg!(<ITEM_NAME> "The name of the item to add.")
                         .value_parser(value_parser!(String)),
@@ -85,8 +85,8 @@ pub fn build() -> Command {
             Command::new("remove")
                 .about("Remove an item from a todo list.")
                 .arg(
-                    arg!(<TODO_PATH> "The path of the todo item to remove.")
-                        .value_parser(ValueParser::new(ItemPath::parse_item_path)),
+                    arg!(<ITEM_PATH> "The path of the todo item to remove.")
+                        // .value_parser(ValueParser::new(ItemPath::parse_item_path)),
                 )
                 .arg(
                     arg!(-d --down "Search down through files instead of up.")
@@ -97,7 +97,7 @@ pub fn build() -> Command {
             Command::new("prune")
                 .about("Archive all completed todo items.")
                 .arg(
-                    arg!([PATH] "Specify an alternate path to search from.")
+                    arg!([FILE_PATH] "Specify an alternate path to search from.")
                         .default_value("./")
                         .value_parser(value_parser!(std::path::PathBuf)),
                 )
@@ -114,8 +114,8 @@ pub fn build() -> Command {
             Command::new("complete")
                 .about("Mark a todo item as completed.")
                 .arg(
-                    arg!(<TODO_PATH> "The path of the todo item to complete.")
-                        .value_parser(ValueParser::new(ItemPath::parse_item_path)),
+                    arg!(<ITEM_PATH> "The path of the todo item to complete.")
+                        // .value_parser(ValueParser::new(ItemPath::parse_item_path)),
                 )
                 .arg(
                     arg!(-d --down "Search down through files instead of up.")
@@ -126,8 +126,8 @@ pub fn build() -> Command {
             Command::new("toggle")
                 .about("Toggle the completion of a todo item.")
                 .arg(
-                    arg!(<TODO_PATH> "The path of the todo item to toggle.")
-                        .value_parser(ValueParser::new(ItemPath::parse_item_path)),
+                    arg!(<ITEM_PATH> "The path of the todo item to toggle.")
+                        // .value_parser(ValueParser::new(ItemPath::parse_item_path)),
                 )
                 .arg(
                     arg!(-d --down "Search down through files instead of up.")
@@ -138,8 +138,8 @@ pub fn build() -> Command {
             Command::new("incomplete")
                 .about("Mark a todo item as incomplete.")
                 .arg(
-                    arg!(<TODO_PATH> "The path of the todo item to mark.")
-                        .value_parser(ValueParser::new(ItemPath::parse_item_path)),
+                    arg!(<ITEM_PATH> "The path of the todo item to mark.")
+                        // .value_parser(ValueParser::new(ItemPath::parse_item_path)),
                 )
                 .arg(
                     arg!(-d --down "Search down through files instead of up.")
@@ -150,8 +150,8 @@ pub fn build() -> Command {
             Command::new("edit")
                 .about("Edit the properties of a todo item.")
                 .arg(
-                    arg!(<TODO_PATH> "The path of the todo item to add.")
-                        .value_parser(ValueParser::new(ItemPath::parse_item_path)),
+                    arg!(<ITEM_PATH> "The path of the todo item to add.")
+                        // .value_parser(ValueParser::new(ItemPath::parse_item_path)),
                 )
                 .arg(
                     arg!(-d --down "Search down through files instead of up.")
@@ -182,8 +182,8 @@ pub fn build() -> Command {
             Command::new("get")
                 .about("Get info about a specific todo item.")
                 .arg(
-                    arg!(<TODO_PATH> "The path of the todo item to get.")
-                        .value_parser(ValueParser::new(ItemPath::parse_item_path)),
+                    arg!(<ITEM_PATH> "The path of the todo item to get.")
+                        // .value_parser(ValueParser::new(ItemPath::parse_item_path)),
                 )
         )
         .subcommand(
@@ -191,11 +191,11 @@ pub fn build() -> Command {
                 .about("Move a todo item to another location.")
                 .arg(
                     arg!(<TODO_FROM> "The path of the todo item to move.")
-                        .value_parser(ValueParser::new(ItemPath::parse_item_path)),
+                        // .value_parser(ValueParser::new(ItemPath::parse_item_path)),
                 )
                 .arg(
                     arg!(<TODO_TO> "The path to move the todo item to.")
-                        .value_parser(ValueParser::new(ItemPath::parse_item_path)),
+                        // .value_parser(ValueParser::new(ItemPath::parse_item_path)),
                 )
                 .arg(
                     arg!(-d --down "Search down through files instead of up.")

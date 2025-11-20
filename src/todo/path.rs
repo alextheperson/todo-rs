@@ -19,7 +19,6 @@ impl std::convert::TryFrom<&str> for ItemPath {
         let first_segment = segments.clone().next();
 
         if first_segment.is_none() {
-            // return Err("Path must not start with '/'.");
             return Err(Error::new(
                 ErrorKind::InvalidInput,
                 "An Item Path cannot start with a '/'.",
@@ -47,6 +46,14 @@ impl std::convert::TryFrom<&str> for ItemPath {
     }
 }
 
+impl std::convert::TryFrom<&String> for ItemPath {
+    type Error = std::io::Error;
+
+    fn try_from(value: &String) -> Result<Self, Self::Error> {
+        return ItemPath::try_from(&value[..]);
+    }
+}
+
 impl ItemPath {
     pub fn new(document: Option<String>, prefixes: Vec<String>) -> ItemPath {
         if document.is_some() {
@@ -63,10 +70,6 @@ impl ItemPath {
                 item_prefixes: prefixes,
             }
         }
-    }
-
-    pub fn parse_item_path(path: &str) -> Result<ItemPath, std::io::Error> {
-        ItemPath::try_from(path)
     }
 
     pub fn matches(self, item: item::Item) -> bool {
