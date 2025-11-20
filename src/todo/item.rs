@@ -242,7 +242,100 @@ impl Item {
         output
     }
 
-    pub fn format_detail(&self, show_children: bool, end: bool, lines: Vec<bool>) -> OutputBuffer {
+    pub fn format_detail(&self, show_children: bool) -> OutputBuffer {
+        let mut output = OutputBuffer::new();
+
+        let priority = if self.completed {
+            self.priority
+        } else {
+            self.priority + self.urgency().unwrap_or(0)
+        };
+
+        let date = if self.date.is_some() {
+            &self.date.clone().unwrap().display()
+        } else {
+            ""
+        };
+
+        let relative_date = if self.date.is_some() {
+            &format!(
+                "{num} day{s}",
+                num = 7 - self.urgency().unwrap(),
+                s = if 7 - self.urgency().unwrap() == 1 {
+                    ""
+                } else {
+                    "s"
+                }
+            )
+        } else {
+            ""
+        };
+
+        // Set colors based on the priority
+        let color = match priority {
+            i16::MIN..=-7 => Color::Green,
+            -6 => Color::Green,
+            -5 => Color::Green,
+            -4 => Color::Blue,
+            -3 => Color::Blue,
+            -2 => Color::Cyan,
+            -1 => Color::Cyan,
+            0 => Color::Default,
+            1 => Color::Yellow,
+            2 => Color::Yellow,
+            3 => Color::Magenta,
+            4 => Color::Magenta,
+            5 => Color::Red,
+            6 => Color::Red,
+            7..=i16::MAX => Color::Red,
+        };
+
+        let mut priority_line = OutputLine::new();
+        priority_line.add(OutputSegment::new(
+            &format!("Priority: {}", priority),
+            color.clone(),
+            Style::new(),
+        ));
+
+        let mut name_line = OutputLine::new();
+        name_line.add(OutputSegment::new(
+            &format!("Name: {}", self.name),
+            Color::Default,
+            Style::new(),
+        ));
+
+        let mut date_line = OutputLine::new();
+        if date != "" {
+            date_line.add(OutputSegment::new(
+                &format!("Date: {} ({} days from now)", date, relative_date),
+                Color::Default,
+                Style::new(),
+            ));
+        } else {
+            date_line.add(OutputSegment::new(
+                &format!("Date: None"),
+                Color::Default,
+                Style::new(),
+            ));
+        }
+
+        output.add(priority_line);
+        output.add(date_line);
+        output.add(name_line);
+
+        if show_children {
+            output.append(self.items.clone().format_overview(vec![]));
+        }
+
+        output
+    }
+
+    pub fn format_overview(
+        &self,
+        show_children: bool,
+        end: bool,
+        lines: Vec<bool>,
+    ) -> OutputBuffer {
         let mut output = OutputBuffer::new();
         let mut output_line = OutputLine::new();
 
@@ -258,47 +351,27 @@ impl Item {
             }
         }
 
-        let mut new_lines = lines.clone();
-
-        if lines.len() != 0 {
-            if end {
-                output_line.add(OutputSegment::new(
-                    "╰ ",
-                    Color::Default,
-                    *Style::new().dim(),
-                ));
-            } else {
-                output_line.add(OutputSegment::new(
-                    "├ ",
-                    Color::Default,
-                    *Style::new().dim(),
-                ));
-            }
-            new_lines.push(end);
+        if end {
+            output_line.add(OutputSegment::new(
+                "╰ ",
+                Color::Default,
+                *Style::new().dim(),
+            ));
+        } else {
+            output_line.add(OutputSegment::new(
+                "├ ",
+                Color::Default,
+                *Style::new().dim(),
+            ));
         }
+
+        let mut new_lines = lines.clone();
+        new_lines.push(end);
 
         let priority = if self.completed {
             self.priority
         } else {
             self.priority + self.urgency().unwrap_or(0)
-        };
-
-        let date = if !self.completed && self.urgency().is_some() {
-            &format!(
-                "{num} day{s}",
-                num = 7 - self.urgency().unwrap(),
-                s = if 7 - self.urgency().unwrap() == 1 {
-                    ""
-                } else {
-                    "s"
-                }
-            )
-        } else {
-            if self.date.is_some() {
-                &self.date.clone().unwrap().display()
-            } else {
-                ""
-            }
         };
 
         // Set colors based on the priority
@@ -328,9 +401,8 @@ impl Item {
 
         if self.date.is_none() {
             output_line.add(OutputSegment::new(
-                &format!("{box} {priority} {name}",
-                    box = if self.archived {"\u{24d0}"} else if self.completed { "▣" } else { "□" },
-                    priority = priority,
+                &format!("{box} {name}",
+                    box = if self.archived {"\u{24d0} "} else if self.completed { "▣" } else { "□" },
                     name = self.name,
                 ),
                 color,
@@ -338,11 +410,10 @@ impl Item {
             ));
         } else {
             output_line.add(OutputSegment::new(
-                &format!("{box} {priority} ({date}) {name}",
-                    box = if self.archived {"\u{24d0}"} else if self.completed { "▣" } else { "□" },
-                    priority = priority,
+                &format!("{box} {name}",
+                    box = if self.archived {"\u{24d0} "} else if self.completed { "▣" } else { "□" },
                     name = self.name,
-                    date = date                ),
+                ),
                 color,
                 style,
             ));
@@ -351,7 +422,7 @@ impl Item {
         output.add(output_line);
 
         if show_children {
-            output.append(self.items.clone().format(new_lines));
+            output.append(self.items.clone().format_overview(new_lines));
         }
 
         output

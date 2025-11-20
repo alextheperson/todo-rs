@@ -12,6 +12,7 @@ pub trait ItemList {
     fn add_item(&mut self, item: Item, path: ItemPath);
     fn recursive_filter(&mut self, predicate: fn(&Item) -> bool);
     fn format(&self, lines: Vec<bool>) -> OutputBuffer;
+    fn format_overview(&self, lines: Vec<bool>) -> OutputBuffer;
     fn prune(&mut self);
     fn remove_by_path(&mut self, path: ItemPath) -> Result<Item, String>;
 }
@@ -196,5 +197,16 @@ impl ItemList for List {
             "Could not find an item that started with '{}'",
             path.item_prefixes[0]
         ))
+    }
+
+    fn format_overview(&self, lines: Vec<bool>) -> OutputBuffer {
+        let mut output = OutputBuffer::new();
+
+        for (i, item) in self.clone().into_iter().enumerate() {
+            let is_end = i >= self.len() - 1;
+            output.append(item.clone().format_overview(true, is_end, lines.clone()));
+        }
+
+        output
     }
 }

@@ -40,8 +40,6 @@ impl std::convert::TryFrom<&str> for ItemPath {
             new_path.item_prefixes.push(piece.to_string());
         }
 
-        println!("{:?}", new_path);
-
         Ok(new_path)
     }
 }

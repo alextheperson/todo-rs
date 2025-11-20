@@ -31,16 +31,11 @@ fn main() {
                     .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(), 
                 sub_matches.get_flag("children"),
                 sub_matches.get_flag("down"),
-                sub_matches.get_one::<String>("format")
-                    .expect("Format must be specified, but there should have been a default value.")
-                    .to_string(),
+            parse_output_format(sub_matches),
             ),
         Some(("list", sub_matches)) => list(
                 sub_matches.get_flag("down"),
-                sub_matches
-                    .get_one::<String>("format")
-                    .expect("Format must be specified, but there should have been a default value.")
-                    .to_string(),
+            parse_output_format(sub_matches),
                 sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
                         .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
 
@@ -82,7 +77,11 @@ fn main() {
                 sub_matches.get_flag("down"),
             ),
         Some(("edit", _sub_matches)) => panic!("`todo edit` has not been implemented yet."),
-        Some(("get", _sub_matches)) => panic!("`todo get` has not been implemented yet."),
+        Some(("get", sub_matches)) => get(
+                parse_item_path_arg(sub_matches),
+                parse_output_format(sub_matches),
+                sub_matches.get_flag("down"),
+        ),
         Some(("move", _sub_matches)) => panic!("`todo move` has not been implemented yet."),
         _ => panic!("The TUI editor has not been implemented yet."),
     }
@@ -102,6 +101,21 @@ fn parse_item_path_arg(matches: &clap::ArgMatches) -> ItemPath {
     ))
 }
 
+fn parse_output_format(matches: &clap::ArgMatches) -> RenderFormat {
+    let format = &matches
+                    .get_one::<String>("format")
+                    .expect("Format must be specified, but there should have been a default value.")[..];
+
+    match format {
+        "html" => RenderFormat::HTML,
+        "html-class" => RenderFormat::HtmlClass,
+        "pango" => RenderFormat::Pango,
+        "plain" => RenderFormat::Plain,
+        "ansi" => RenderFormat::ANSI,
+        _ => panic!("Unrecognized vale for --format: '{}'", format),
+    }
+}
+
 fn init(path: PathBuf) {
     let todo_path = path.join(".todo");
     if fs::exists(&todo_path).unwrap_or(false) {
@@ -113,15 +127,7 @@ fn init(path: PathBuf) {
     }
 }
 
-fn next(path: PathBuf, show_children: bool, down: bool, format_string: String) {
-    let format = match &format_string[..] {
-        "html" => RenderFormat::HTML,
-        "html-class" => RenderFormat::HtmlClass,
-        "pango" => RenderFormat::Pango,
-        "plain" => RenderFormat::Plain,
-        _ => RenderFormat::ANSI,
-    };
-
+fn next(path: PathBuf, show_children: bool, down: bool, format: RenderFormat) {
     let paths: Vec<PathBuf>;
 
     if down {
@@ -152,26 +158,18 @@ fn next(path: PathBuf, show_children: bool, down: bool, format_string: String) {
     println!(
         "{}",
         top_item
-            .format_detail(show_children, false, vec![])
+            .format_detail(show_children)
             .render(&format)
     );
 }
 
 fn list(
     down: bool,
-    format_string: String,
+    format: RenderFormat,
     path: PathBuf,
     show_archived: bool,
     show_completed: bool,
 ) {
-    let format = match &format_string[..] {
-        "html" => RenderFormat::HTML,
-        "html-class" => RenderFormat::HtmlClass,
-        "pango" => RenderFormat::Pango,
-        "plain" => RenderFormat::Plain,
-        _ => RenderFormat::ANSI,
-    };
-
     let search_start = path;
 
     let paths: Vec<PathBuf>;
@@ -322,4 +320,18 @@ fn remove(path: ItemPath, down: bool) {
     );
 
     list.save();
+}
+
+fn get(path: ItemPath, format: RenderFormat, down: bool) {
+    let mut list = search_paths::find_list(path.document.clone(), down).expect(&format!(
+        "Could not find a list with the name '{}'",
+        path.document.clone()
+    ));
+
+    if path.item_prefixes.len() == 0 {
+        println!("{}", list.format(list.path.clone()).render(&format));
+    } else {
+        let item = list.items.find(path.clone()).unwrap();
+        println!("{}", item.format_detail(true).render(&format));
+    }
 }
