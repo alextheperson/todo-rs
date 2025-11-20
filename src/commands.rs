@@ -147,6 +147,8 @@ FILE FORMAT
         .subcommand(
             Command::new("remove")
                 .about("Remove an item from a todo list.")
+                .visible_alias("delete")
+                .visible_alias("rm")
                 .arg(arg!(<ITEM_PATH> "The path of the todo item to remove."))
                 .arg(down_flag!()),
         )
