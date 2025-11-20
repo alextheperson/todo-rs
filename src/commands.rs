@@ -123,7 +123,13 @@ FILE FORMAT
                     arg!(<ITEM_NAME> "The name of the item to add.")
                         .value_parser(value_parser!(String)),
                 )
-                .arg(down_flag!()),
+                .arg(down_flag!())
+                .arg(arg!(-D --date "Give the new item a due date.").action(ArgAction::Set))
+                .arg(
+                    arg!(-p --priority "Set the priority of the new item.")
+                        .action(ArgAction::Set)
+                        .value_parser(value_parser!(i16)),
+                ),
         )
         .subcommand(
             Command::new("complete")

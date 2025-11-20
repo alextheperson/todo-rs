@@ -10,6 +10,7 @@ mod output;
 mod search_paths;
 mod todo;
 
+use crate::date::Date;
 use crate::output::RenderFormat;
 use crate::output::line::OutputLine;
 use crate::todo::document::Document;
@@ -22,65 +23,56 @@ fn main() {
     let matches = command.clone().get_matches();
 
     match matches.subcommand() {
-        Some(("init", sub_matches)) => init(
-                sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
-                .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf()
-            ),
+        Some(("init", sub_matches)) => init(parse_file_path(sub_matches)),
         Some(("next", sub_matches)) => next(
-                sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
-                    .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(), 
-                sub_matches.get_flag("children"),
-                sub_matches.get_flag("down"),
+            parse_file_path(sub_matches),
+            sub_matches.get_flag("children"),
+            sub_matches.get_flag("down"),
             parse_output_format(sub_matches),
-            ),
+        ),
         Some(("list", sub_matches)) => list(
-                sub_matches.get_flag("down"),
+            sub_matches.get_flag("down"),
             parse_output_format(sub_matches),
-                sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
-                        .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
-
-                sub_matches.get_flag("archived"),
-                !sub_matches.get_flag("completed"),
-            ),
+            parse_file_path(sub_matches),
+            sub_matches.get_flag("archived"),
+            !sub_matches.get_flag("completed"),
+        ),
         Some(("add", sub_matches)) => add(
-                parse_item_path_arg(sub_matches),
-                Item {
-                    name : sub_matches.get_one::<String>("ITEM_NAME").expect("Expected an item name.").to_string(),
-                    date: None,
-                    priority: 0,
-                    completed: false,
-                    archived: false,
-                    items: vec![]
-                },
-                sub_matches.get_flag("down"),
-            ),
+            parse_item_path_arg(sub_matches),
+            sub_matches
+                .get_one::<String>("ITEM_NAME")
+                .expect("Expected an item name.")
+                .to_string(),
+            parse_date(sub_matches),
+            sub_matches.get_one::<i16>("priority"),
+            sub_matches.get_flag("down"),
+        ),
         Some(("remove", sub_matches)) => remove(
-                parse_item_path_arg(sub_matches), 
-                sub_matches.get_flag("down"),
-            ),
+            parse_item_path_arg(sub_matches),
+            sub_matches.get_flag("down"),
+        ),
         Some(("prune", sub_matches)) => prune(
-                sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
-                    .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
-                sub_matches.get_flag("single"),
-                sub_matches.get_flag("down"),
-            ),
+            parse_file_path(sub_matches),
+            sub_matches.get_flag("single"),
+            sub_matches.get_flag("down"),
+        ),
         Some(("complete", sub_matches)) => complete(
-                parse_item_path_arg(sub_matches),
-                sub_matches.get_flag("down"),
-            ),
+            parse_item_path_arg(sub_matches),
+            sub_matches.get_flag("down"),
+        ),
         Some(("toggle", sub_matches)) => toggle(
-                parse_item_path_arg(sub_matches),
-                sub_matches.get_flag("down"),
-            ),
+            parse_item_path_arg(sub_matches),
+            sub_matches.get_flag("down"),
+        ),
         Some(("incomplete", sub_matches)) => incomplete(
-                parse_item_path_arg(sub_matches),
-                sub_matches.get_flag("down"),
-            ),
+            parse_item_path_arg(sub_matches),
+            sub_matches.get_flag("down"),
+        ),
         Some(("edit", _sub_matches)) => panic!("`todo edit` has not been implemented yet."),
         Some(("get", sub_matches)) => get(
-                parse_item_path_arg(sub_matches),
-                parse_output_format(sub_matches),
-                sub_matches.get_flag("down"),
+            parse_item_path_arg(sub_matches),
+            parse_output_format(sub_matches),
+            sub_matches.get_flag("down"),
         ),
         Some(("move", _sub_matches)) => panic!("`todo move` has not been implemented yet."),
         _ => panic!("The TUI editor has not been implemented yet."),
@@ -103,8 +95,8 @@ fn parse_item_path_arg(matches: &clap::ArgMatches) -> ItemPath {
 
 fn parse_output_format(matches: &clap::ArgMatches) -> RenderFormat {
     let format = &matches
-                    .get_one::<String>("format")
-                    .expect("Format must be specified, but there should have been a default value.")[..];
+        .get_one::<String>("format")
+        .expect("Format must be specified, but there should have been a default value.")[..];
 
     match format {
         "html" => RenderFormat::HTML,
@@ -114,6 +106,29 @@ fn parse_output_format(matches: &clap::ArgMatches) -> RenderFormat {
         "ansi" => RenderFormat::ANSI,
         _ => panic!("Unrecognized vale for --format: '{}'", format),
     }
+}
+
+fn parse_date(matches: &clap::ArgMatches) -> Option<Date> {
+    let value = matches.get_one::<String>("date");
+
+    if value.is_some() {
+        let parsed = Date::from(&value.unwrap());
+        if parsed.is_ok() {
+            Some(parsed.unwrap())
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+fn parse_file_path(matches: &clap::ArgMatches) -> PathBuf {
+    matches.get_one::<PathBuf>("FILE_PATH")
+        .unwrap_or(&std::env::current_dir().expect("You need to be in a directory."))
+        .canonicalize()
+        .expect("There needs to be a directory specified, but there was supposed to be a default value.")
+        .to_path_buf()
 }
 
 fn init(path: PathBuf) {
@@ -155,12 +170,7 @@ fn next(path: PathBuf, show_children: bool, down: bool, format: RenderFormat) {
     top_list.items.sort_by(|a, b| b.priority.cmp(&a.priority));
     let top_item = top_list.items[0].clone();
 
-    println!(
-        "{}",
-        top_item
-            .format_detail(show_children)
-            .render(&format)
-    );
+    println!("{}", top_item.format_detail(show_children).render(&format));
 }
 
 fn list(
@@ -209,11 +219,20 @@ fn list(
     println!("");
 }
 
-fn add(path: ItemPath, item: Item, down: bool) {
+fn add(path: ItemPath, item_name: String, date: Option<Date>, priority: Option<&i16>, down: bool) {
     let mut list = search_paths::find_list(path.document.clone(), down).expect(&format!(
         "Could not find a list with the name '{}'",
         path.document.clone()
     ));
+
+    let item = Item {
+        name: item_name,
+        date: date,
+        priority: *priority.unwrap_or(&0_i16),
+        completed: false,
+        archived: false,
+        items: vec![],
+    };
 
     list.items.add_item(item.clone(), path.clone());
 
