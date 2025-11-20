@@ -1,5 +1,3 @@
-// use clap::builder::PossibleValue;
-// use clap::{ArgAction, Command, ValueEnum, arg, value_parser};
 use clap::ValueEnum;
 use clap_complete::{Shell, generate_to};
 use clap_mangen::Man;
@@ -23,7 +21,8 @@ fn main() -> Result<(), Error> {
     let mut buffer: Vec<u8> = Default::default();
     man.render(&mut buffer)?;
 
-    std::fs::write(PathBuf::from(outdir).join("todo.1"), buffer)?;
+    std::fs::write(PathBuf::from(&outdir).join("todo.1"), &buffer)?;
+    std::fs::write(PathBuf::from(&outdir).join("todo-rs.1"), &buffer)?;
 
     Ok(())
 }

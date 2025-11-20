@@ -37,6 +37,7 @@
 
             postInstall = ''
               installManPage target/release/build/todo-rs-*/out/todo.1
+              installManPage target/release/build/todo-rs-*/out/todo-rs.1
               # This is cursed, but for some reason, I cannot
               # refer to the directory I want by name, I have to
               # do it indirectly like this
