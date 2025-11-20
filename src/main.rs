@@ -22,7 +22,7 @@ fn main() {
     let matches = command.clone().get_matches();
 
     match matches.subcommand() {
-        Some(("new", sub_matches)) => new(sub_matches
+        Some(("init", sub_matches)) => init(sub_matches
             .get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
                 .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf()
             ),
@@ -99,7 +99,7 @@ fn parse_item_path_arg(matches: &clap::ArgMatches) -> ItemPath {
     ))
 }
 
-fn new(path: PathBuf) {
+fn init(path: PathBuf) {
     let todo_path = path.join(".todo");
     if fs::exists(&todo_path).unwrap_or(false) {
         println!("[LIST]: '{}' already exists.", todo_path.display());

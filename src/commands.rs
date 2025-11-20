@@ -88,7 +88,7 @@ FILE FORMAT
          * Main commands
          */
         .subcommand(
-            Command::new("new")
+            Command::new("init")
                 .about("Create a new `.todo` in the current directory.")
                 .arg(file_path!("An alternate directory to initialize.")),
         )
