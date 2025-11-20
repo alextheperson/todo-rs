@@ -13,6 +13,7 @@ pub trait ItemList {
     fn recursive_filter(&mut self, predicate: fn(&Item) -> bool);
     fn format(&self, lines: Vec<bool>) -> OutputBuffer;
     fn prune(&mut self);
+    fn remove_by_path(&mut self, path: ItemPath) -> Result<Item, String>;
 }
 
 impl ItemList for List {
@@ -92,7 +93,7 @@ impl ItemList for List {
         output
     }
 
-    // Get a mutable reference to an item that matches a certain path.
+    /// Get a mutable reference to an item that matches a certain path.
     fn find(&mut self, path: ItemPath) -> Result<&mut Item, String> {
         let mut matching_itmes = vec![];
 
@@ -164,5 +165,36 @@ impl ItemList for List {
 
             item.items.prune();
         }
+    }
+
+    fn remove_by_path(&mut self, path: ItemPath) -> Result<Item, String> {
+        let mut matching_itmes = vec![];
+
+        for (i, item) in self.clone().into_iter().enumerate() {
+            if path.clone().matches(item.clone()) {
+                matching_itmes.push(i);
+            }
+        }
+
+        // There is probably a better way to do this, but I don't know enough rust for that.
+        if path.item_prefixes.len() == 1 && matching_itmes.len() > 0 {
+            let item = self[matching_itmes[0]].clone();
+            self.remove(matching_itmes[0]);
+            return Ok(item);
+        } else {
+            for i in matching_itmes {
+                let mut cloned_list = self.clone();
+                let result = cloned_list[i].items.remove_by_path(path.clone().shifted());
+
+                if result.is_ok() {
+                    return self[i].items.remove_by_path(path.clone().shifted());
+                }
+            }
+        }
+
+        Err(format!(
+            "Could not find an item that started with '{}'",
+            path.item_prefixes[0]
+        ))
     }
 }

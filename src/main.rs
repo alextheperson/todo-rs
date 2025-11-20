@@ -22,30 +22,30 @@ fn main() {
     let matches = command.clone().get_matches();
 
     match matches.subcommand() {
-        Some(("init", sub_matches)) => init(sub_matches
-            .get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+        Some(("init", sub_matches)) => init(
+                sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
                 .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf()
             ),
         Some(("next", sub_matches)) => next(
-            sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
-                .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(), 
-            sub_matches.get_flag("children"),
-            sub_matches.get_flag("down"),
-            sub_matches.get_one::<String>("format")
-                .expect("Format must be specified, but there should have been a default value.")
-                .to_string(),
+                sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+                    .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(), 
+                sub_matches.get_flag("children"),
+                sub_matches.get_flag("down"),
+                sub_matches.get_one::<String>("format")
+                    .expect("Format must be specified, but there should have been a default value.")
+                    .to_string(),
             ),
         Some(("list", sub_matches)) => list(
-            sub_matches.get_flag("down"),
-            sub_matches
-                .get_one::<String>("format")
-                .expect("Format must be specified, but there should have been a default value.")
-                .to_string(),
-            sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
-                    .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
+                sub_matches.get_flag("down"),
+                sub_matches
+                    .get_one::<String>("format")
+                    .expect("Format must be specified, but there should have been a default value.")
+                    .to_string(),
+                sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+                        .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
 
-            sub_matches.get_flag("archived"),
-            !sub_matches.get_flag("completed"),
+                sub_matches.get_flag("archived"),
+                !sub_matches.get_flag("completed"),
             ),
         Some(("add", sub_matches)) => add(
                 parse_item_path_arg(sub_matches),
@@ -59,9 +59,12 @@ fn main() {
                 },
                 sub_matches.get_flag("down"),
             ),
-        Some(("remove", _sub_matches)) => panic!("`todo remove` hos not been implemented yet."),
+        Some(("remove", sub_matches)) => remove(
+                parse_item_path_arg(sub_matches), 
+                sub_matches.get_flag("down"),
+            ),
         Some(("prune", sub_matches)) => prune(
-            sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
+                sub_matches.get_one::<PathBuf>("FILE_PATH").unwrap_or(&std::env::current_dir().expect("You need to be in a directory.")).canonicalize()
                     .expect("There needs to be a directory specified, but there was supposed to be a default value.").to_path_buf(),
                 sub_matches.get_flag("single"),
                 sub_matches.get_flag("down"),
@@ -302,4 +305,21 @@ fn prune(path: PathBuf, single: bool, down: bool) {
             list_path = document.path.display()
         );
     }
+}
+
+fn remove(path: ItemPath, down: bool) {
+    let mut list = search_paths::find_list(path.document.clone(), down).expect(&format!(
+        "Could not find a list with the name '{}'",
+        path.document.clone()
+    ));
+
+    let item = list.items.remove_by_path(path).unwrap();
+
+    println!(
+        "[LIST]: Removed '{item_name}' in #{list_name}.",
+        item_name = item.name,
+        list_name = list.name
+    );
+
+    list.save();
 }

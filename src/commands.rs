@@ -162,6 +162,7 @@ FILE FORMAT
                 .arg(item_path!("The path of the todo item to mark."))
                 .arg(down_flag!()),
         )
+        // TODO:
         .subcommand(
             Command::new("edit")
                 .about("Edit the properties of a todo item.")
@@ -182,6 +183,7 @@ FILE FORMAT
                         .action(ArgAction::SetTrue),
                 ),
         )
+        // TODO:
         .subcommand(
             Command::new("get")
                 .about("Get info about a specific todo item.")
@@ -189,6 +191,7 @@ FILE FORMAT
                     arg!(<ITEM_PATH> "The path of the todo item to get."), // .value_parser(ValueParser::new(ItemPath::parse_item_path)),
                 ),
         )
+        // TODO:
         .subcommand(
             Command::new("move")
                 .about("Move a todo item to another location.")
