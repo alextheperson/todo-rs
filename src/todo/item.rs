@@ -257,15 +257,12 @@ impl Item {
             ""
         };
 
+        let date_distance = self.date.unwrap().distance(Date::today());
         let relative_date = if self.date.is_some() {
             &format!(
                 "{num} day{s}",
-                num = 7 - self.urgency().unwrap(),
-                s = if 7 - self.urgency().unwrap() == 1 {
-                    ""
-                } else {
-                    "s"
-                }
+                num = date_distance,
+                s = if date_distance == 1 { "" } else { "s" }
             )
         } else {
             ""

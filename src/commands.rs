@@ -170,26 +170,20 @@ FILE FORMAT
                 .arg(item_path!("The path of the todo item to mark."))
                 .arg(down_flag!()),
         )
-        // TODO:
         .subcommand(
             Command::new("edit")
                 .about("Edit the properties of a todo item.")
                 .arg(item_path!("The path of the todo item to add."))
                 .arg(down_flag!())
-                .arg(arg!(-n --name "Set the name of the todo item.").action(ArgAction::SetTrue))
-                .arg(arg!(-D --date "Set the date of the todo item.").action(ArgAction::SetTrue))
+                .arg(arg!(-n --name "Set the name of the todo item.").action(ArgAction::Set))
+                .arg(arg!(-D --date "Set the date of the todo item.").action(ArgAction::Set))
                 .arg(
-                    arg!(-p --priority "Set the priority of the todo item.")
-                        .action(ArgAction::SetTrue),
+                    arg!(-p --priority "Set the priority of the todo item.").action(ArgAction::Set),
                 )
                 .arg(
-                    arg!(-c --completed "Set whether the item is completed")
-                        .action(ArgAction::SetTrue),
+                    arg!(-c --completed "Set whether the item is completed").action(ArgAction::Set),
                 )
-                .arg(
-                    arg!(-a --archived "Set whether the item is archived")
-                        .action(ArgAction::SetTrue),
-                ),
+                .arg(arg!(-a --archived "Set whether the item is archived").action(ArgAction::Set)),
         )
         .subcommand(
             Command::new("get")
