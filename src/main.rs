@@ -79,7 +79,30 @@ fn main() {
             parse_output_format(sub_matches),
             sub_matches.get_flag("down"),
         ),
-        Some(("move", _sub_matches)) => panic!("`todo move` has not been implemented yet."),
+        Some(("move", sub_matches)) => move_item(
+            ItemPath::try_from(
+                &sub_matches
+                    .get_one::<String>("TODO_FROM")
+                    .expect("Expected an item path.")
+                    .clone(),
+            )
+            .expect(&format!(
+                "Could not parse the item path '{}'.",
+                sub_matches.get_one::<String>("TODO_FROM").unwrap()
+            )),
+            sub_matches.get_flag("down1"),
+            ItemPath::try_from(
+                &sub_matches
+                    .get_one::<String>("TODO_TO")
+                    .expect("Expected an item path.")
+                    .clone(),
+            )
+            .expect(&format!(
+                "Could not parse the item path '{}'.",
+                sub_matches.get_one::<String>("TODO_TO").unwrap()
+            )),
+            sub_matches.get_flag("down2"),
+        ),
         _ => panic!("The TUI editor has not been implemented yet."),
     }
 }

@@ -3,7 +3,7 @@ use std::io::{Error, ErrorKind};
 use crate::todo::{document, item};
 
 // #list/item1/nesteditem
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemPath {
     pub document: String,
     pub item_prefixes: Vec<String>,
@@ -85,5 +85,9 @@ impl ItemPath {
             document: self.document,
             item_prefixes: self.item_prefixes[1..].to_vec(),
         }
+    }
+
+    pub fn display(&self) -> String {
+        return format!("#{}/{}", self.document, self.item_prefixes.join("/"));
     }
 }

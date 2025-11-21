@@ -3,9 +3,9 @@ use clap::{ArgAction, Command, arg, value_parser};
 
 macro_rules! output_format {
      () => {
-        arg!(-f --format [FORMAT] "Set the output format.")
+        arg!(-f --format "Set the output format.")
             .action(ArgAction::Set)
-            .value_name("format")
+            .value_name("FORMAT")
             .default_value("ansi")
             .value_parser([
                 PossibleValue::new("ansi").help("Use terminal escape codes (default)."),
@@ -188,18 +188,24 @@ FILE FORMAT
         .subcommand(
             Command::new("get")
                 .about("Get the details of a specific todo item or list.")
-                .arg(
-                    arg!(<ITEM_PATH> "The path of the todo item to get."),
-                )
+                .arg(arg!(<ITEM_PATH> "The path of the todo item to get."))
                 .arg(output_format!())
                 .arg(down_flag!()),
         )
-        // TODO:
         .subcommand(
             Command::new("move")
                 .about("Move a todo item to another location.")
                 .arg(arg!(<TODO_FROM> "The path of the todo item to move."))
+                .arg(
+                    arg!(-d --down1 "Search down through files instead of up for the item to move.")
+                        .id("down1")
+                        .action(ArgAction::SetTrue),
+                )
                 .arg(arg!(<TODO_TO> "The path to move the todo item to."))
-                .arg(down_flag!()),
+                .arg(
+                    arg!(-D --down2 "Search down through files instead of up for the item destination.")
+                        .id("down2")
+                        .action(ArgAction::SetTrue),
+                ),
         )
 }

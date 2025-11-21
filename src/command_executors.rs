@@ -284,3 +284,33 @@ pub fn edit(
 
     list.save();
 }
+
+pub fn move_item(from_path: ItemPath, down1: bool, to_path: ItemPath, down2: bool) {
+    println!("Moving {} -> {}", from_path.display(), to_path.display());
+    if from_path == to_path {
+        // No-op
+        return;
+    }
+    let mut list1 = search_paths::find_list(from_path.document.clone(), down1).expect(&format!(
+        "Could not find a list with the name '{}'",
+        from_path.document.clone()
+    ));
+
+    let item1 = list1
+        .items
+        .remove_by_path(from_path.clone())
+        .expect(&format!(
+            "Could not remvove item '{}'",
+            &from_path.display(),
+        ));
+
+    let mut list2 = search_paths::find_list(to_path.document.clone(), down2).expect(&format!(
+        "Could not find a list with the name '{}'",
+        to_path.document.clone()
+    ));
+
+    list2.items.add_item(item1.clone(), to_path.clone());
+
+    list1.save();
+    list2.save();
+}
