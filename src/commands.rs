@@ -189,7 +189,7 @@ FILE FORMAT
             Command::new("get")
                 .about("Get the details of a specific todo item or list.")
                 .arg(
-                    arg!(<ITEM_PATH> "The path of the todo item to get."), // .value_parser(ValueParser::new(ItemPath::parse_item_path)),
+                    arg!(<ITEM_PATH> "The path of the todo item to get."),
                 )
                 .arg(output_format!())
                 .arg(down_flag!()),
