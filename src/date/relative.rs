@@ -4,9 +4,16 @@ use chrono::Months;
 use chrono::offset::Local;
 
 use crate::date::Date;
+use crate::error::CodeComponent;
+use crate::error::CodeComponent::DateParser;
+use crate::error::Error;
+use crate::match_error;
+use crate::match_option;
+use crate::match_result;
+use crate::propagate;
 
 impl Date {
-    pub fn parse_relative_date(input: &str) -> Result<Date, String> {
+    pub fn parse_relative_date(input: &str) -> Result<Date, Error> {
         /*
         Templates:
 
@@ -30,112 +37,185 @@ impl Date {
         |--------|---------------------------|
         */
 
-        let day = Date::parse_relative_day(input);
-        if day.is_ok() {
-            return Ok(day.unwrap());
+        if let Ok(day) = Date::parse_relative_day(input) {
+            return Ok(day);
         }
 
-        let month = Date::parse_relative_month(input);
-        if month.is_ok() {
-            return Ok(month.unwrap());
+        if let Ok(month) = Date::parse_relative_month(input) {
+            return Ok(month);
         }
 
-        let month = Date::parse_relative_year(input);
-        if month.is_ok() {
-            return Ok(month.unwrap());
+        if let Ok(year) = Date::parse_relative_year(input) {
+            return Ok(year);
         }
 
-        Err(format!("Could not parse relative date '{}'.", input))
+        Err(propagate!(
+            DateParser,
+            format!("Could not parse relative date '{}'.", input)
+        ))
     }
 
-    fn parse_relative_day(input: &str) -> Result<Date, String> {
+    fn parse_relative_day(input: &str) -> Result<Date, Error> {
         if input.starts_with("in ") {
             if input.ends_with(" day") || input.ends_with(" days") {
-                let offset = input.split(" ").collect::<Vec<&str>>()[1]
-                    .parse::<usize>()
-                    .unwrap();
+                let num = input.split(" ").collect::<Vec<&str>>()[1];
+                let offset = match_result!(
+                    num.parse::<usize>(),
+                    DateParser,
+                    format!("Could not parse '{num}' as a number")
+                );
                 let mut today = Local::now().date_naive();
-                today = today
-                    .checked_add_days(Days::new(u64::try_from(offset).unwrap()))
-                    .unwrap();
-                return Ok(Date::from_date(today));
+                today = match_option!(
+                    today.checked_add_days(Days::new(match_result!(
+                        u64::try_from(offset),
+                        DateParser,
+                        format!("Could not convert the day offset: {offset}.")
+                    ))),
+                    DateParser,
+                    format!("Could not add the day offset: {offset}.")
+                );
+                return Ok(match_error!(
+                    Date::from_date(today),
+                    DateParser,
+                    format!("Could not create date object with +{offset} days.")
+                ));
             }
         } else if input == "tomorrow" {
             let mut today = Local::now().date_naive();
-            today = today.checked_add_days(Days::new(1)).unwrap();
-            return Ok(Date::from_date(today));
+            today = match_option!(
+                today.checked_add_days(Days::new(1)),
+                DateParser,
+                format!("Could not add an additional day.")
+            );
+            return Ok(match_error!(
+                Date::from_date(today),
+                DateParser,
+                format!("Could not create date object with +1 day.")
+            ));
         }
 
-        let day_of_the_week = Date::parse_day_of_the_week(input);
-        if day_of_the_week.is_ok() {
-            return Ok(day_of_the_week.unwrap());
+        if let Ok(day_of_the_week) = Date::parse_day_of_the_week(input) {
+            return Ok(day_of_the_week);
         }
 
-        Err(format!("Could not parse '{}' into a day", input))
+        Err(propagate!(
+            DateParser,
+            format!("Could not parse '{}' into a day", input)
+        ))
     }
 
-    fn parse_relative_month(input: &str) -> Result<Date, String> {
+    fn parse_relative_month(input: &str) -> Result<Date, Error> {
         if input == "" {
-            return Err("Cannot parse an empty string to a month.".to_string());
+            return Err(propagate!(
+                DateParser,
+                format!("Cannot parse an empty string to a month.")
+            ));
         }
 
         let month = Date::parse_month(input);
-        if month.is_ok() {
-            let current_month = Date::today().month;
-            let mut year = Date::today().year;
-            if month.unwrap() <= current_month {
+        if let Ok(month) = month {
+            let current_date = match_error!(
+                Date::today(),
+                DateParser,
+                format!("Could not get today's date.")
+            );
+            let current_month = current_date.month;
+            let mut year = current_date.year;
+            if month <= current_month {
                 year += 1;
             }
 
             return Ok(Date {
                 day: 1,
-                month: month.unwrap(),
+                month: month,
                 year: year,
             });
         }
 
         if input.starts_with("in ") {
             if input.ends_with(" month") || input.ends_with(" months") {
-                let offset = input.split(" ").collect::<Vec<&str>>()[1]
-                    .parse::<usize>()
-                    .unwrap();
+                let num = input.split(" ").collect::<Vec<&str>>()[1];
+                let offset = match_result!(
+                    num.parse::<usize>(),
+                    DateParser,
+                    format!("Could not parse '{num}' to a number.")
+                );
                 let mut today = Local::now().date_naive();
-                today = today
-                    .checked_add_months(Months::new(u32::try_from(offset).unwrap()))
-                    .unwrap();
-                return Ok(Date::from_date(today));
+                today = match_option!(
+                    today.checked_add_months(Months::new(match_result!(
+                        u32::try_from(offset),
+                        DateParser,
+                        format!("Could not convert the month offset: {offset}.")
+                    ))),
+                    DateParser,
+                    format!("Could not add the month offset: {offset}.")
+                );
+
+                return Ok(match_error!(
+                    Date::from_date(today),
+                    DateParser,
+                    format!("Could not create date object with +{offset} months.")
+                ));
             }
         } else if input == "next month" {
             let mut today = Local::now().date_naive();
-            today = today.checked_add_months(Months::new(1)).unwrap();
-            return Ok(Date::from_date(today));
+            today = match_option!(
+                today.checked_add_months(Months::new(1)),
+                DateParser,
+                format!("Could not add 1 month")
+            );
+            return Ok(match_error!(
+                Date::from_date(today),
+                DateParser,
+                format!("Could not create date object with +1 month.")
+            ));
         }
 
-        Err(format!("Could not parse '{}' into a month", input))
+        Err(propagate!(
+            DateParser,
+            format!("Could not parse '{}' into a month", input)
+        ))
     }
 
-    fn parse_relative_year(input: &str) -> Result<Date, String> {
+    fn parse_relative_year(input: &str) -> Result<Date, Error> {
         if input.starts_with("in ") {
             if input.ends_with(" year") || input.ends_with(" years") {
-                let offset = input.split(" ").collect::<Vec<&str>>()[1]
-                    .parse::<u16>()
-                    .unwrap();
-                let mut day = Date::today();
+                let num = input.split(" ").collect::<Vec<&str>>()[1];
+                let offset = match_result!(
+                    num.parse::<u16>(),
+                    DateParser,
+                    format!("Could not parse '{num}' to a number.")
+                );
+                let mut day = match_error!(
+                    Date::today(),
+                    DateParser,
+                    format!("Could not get the current date.")
+                );
                 day.year += offset;
                 return Ok(day);
             }
         } else if input == "next year" {
-            let mut day = Date::today();
+            let mut day = match_error!(
+                Date::today(),
+                DateParser,
+                format!("Could not get the current date.")
+            );
             day.year += 1;
             return Ok(day);
         }
 
-        Err(format!("Could not parse '{}' into a year", input))
+        Err(propagate!(
+            DateParser,
+            format!("Could not parse '{}' into a year", input)
+        ))
     }
 
-    fn parse_day_of_the_week(input: &str) -> Result<Date, String> {
+    fn parse_day_of_the_week(input: &str) -> Result<Date, Error> {
         if input == "" {
-            return Err(format!("Cannot parse empty string to day of the week."));
+            return Err(propagate!(
+                DateParser,
+                format!("Cannot parse empty string to day of")
+            ));
         }
 
         let days = [
@@ -152,17 +232,22 @@ impl Date {
         let mut skip_week = false;
 
         for (i, day) in days.iter().enumerate() {
+            let day_of_the_week = match_result!(
+                i32::try_from(i),
+                DateParser,
+                format!("Could not convert day index {i}")
+            );
+
             if day.starts_with(&input.to_string().to_ascii_lowercase()) {
-                target = i32::try_from(i).unwrap();
+                target = day_of_the_week;
                 break;
             } else {
                 let input_words = input.split(" ").collect::<Vec<&str>>();
-                if input_words.len() == 2 {}
                 if input_words.len() == 2
                     && input_words[0] == "next"
                     && day.starts_with(&input_words[1].to_string().to_ascii_lowercase())
                 {
-                    target = i32::try_from(i).unwrap();
+                    target = day_of_the_week;
                     skip_week = true;
                     break;
                 }
@@ -170,17 +255,30 @@ impl Date {
         }
 
         if target == -1 {
-            return Err(format!("Day of the week '{}' not recognized", input));
+            return Err(propagate!(
+                DateParser,
+                format!("Day of the week '{}' not recognized", input)
+            ));
         }
 
-        let today = i32::try_from(
-            Date::today()
-                .as_chrono()
-                .unwrap()
+        let today = match_result!(
+            i32::try_from(
+                match_error!(
+                    match_error!(
+                        Date::today(),
+                        DateParser,
+                        format!("Could not get today's date.")
+                    )
+                    .as_chrono(),
+                    DateParser,
+                    format!("Could not convert the date in order to get the weekday.")
+                )
                 .weekday()
                 .num_days_from_monday(),
-        )
-        .unwrap();
+            ),
+            DateParser,
+            format!("Could not covnert weekday number")
+        );
 
         let mut delta;
 
@@ -198,14 +296,36 @@ impl Date {
 
         // Sanity check
         if delta >= 0 && delta <= 14 {
-            let new_date = Date::today()
-                .as_chrono()
-                .unwrap()
-                .checked_add_days(Days::new(u64::try_from(delta).unwrap()))
-                .unwrap();
-            return Ok(Date::from_date(new_date));
+            let new_date = match_option!(
+                match_error!(
+                    match_error!(
+                        Date::today(),
+                        DateParser,
+                        format!("Could not get today's date.")
+                    )
+                    .as_chrono(),
+                    DateParser,
+                    format!("Could not convert the date in order to get the weekday.")
+                )
+                .checked_add_days(Days::new(match_result!(
+                    u64::try_from(delta),
+                    DateParser,
+                    format!("Could not convert {delta} days to u64.")
+                ))),
+                DateParser,
+                format!("Could not add the days.")
+            );
+            println!("abt{delta}");
+            return Ok(match_error!(
+                Date::from_date(new_date),
+                DateParser,
+                format!("Could not create date with +{delta} days.")
+            ));
         }
 
-        return Err(format!("Not implemented '{}'", input));
+        return Err(propagate!(
+            DateParser,
+            format!("Not implemented '{}'", input)
+        ));
     }
 }

@@ -28,8 +28,8 @@ macro_rules! item_path {
 macro_rules! file_path {
     ($x: expr) => {
         arg!([FILE_PATH] $x)
-            .default_value("./")
             .value_parser(value_parser!(std::path::PathBuf))
+            // Default value is handled elsewhere.
     };
 }
 
@@ -128,7 +128,7 @@ FILE FORMAT
                 .arg(
                     arg!(-p --priority "Set the priority of the new item.")
                         .action(ArgAction::Set)
-                        .value_parser(value_parser!(i16)),
+                        .value_parser(value_parser!(i64)),
                 ),
         )
         .subcommand(
@@ -178,7 +178,8 @@ FILE FORMAT
                 .arg(arg!(-n --name "Set the name of the todo item.").action(ArgAction::Set))
                 .arg(arg!(-D --date "Set the date of the todo item.").action(ArgAction::Set))
                 .arg(
-                    arg!(-p --priority "Set the priority of the todo item.").action(ArgAction::Set),
+                    arg!(-p --priority "Set the priority of the todo item.").action(ArgAction::Set)
+                        .value_parser(value_parser!(i64)),
                 )
                 .arg(
                     arg!(-c --completed "Set whether the item is completed").action(ArgAction::Set),

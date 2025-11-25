@@ -1,48 +1,56 @@
+use crate::error::{CodeComponent::ItemList, CodeComponent::ListParser, Error};
 use crate::output::buffer::OutputBuffer;
 use crate::todo::item::Item;
 use crate::todo::path::ItemPath;
+use crate::{match_error, match_option, propagate};
 use std::cmp::Ordering;
 
 pub type List = Vec<Item>;
 
-pub trait ItemList {
-    fn parse(file: String) -> List;
+pub trait TodoList {
+    fn parse(file: String) -> Result<List, Error>;
     fn to_save(&self) -> String;
-    fn find(&mut self, path: ItemPath) -> Result<&mut Item, String>;
-    fn add_item(&mut self, item: Item, path: ItemPath);
+    fn find(&mut self, path: &ItemPath) -> Result<&mut Item, Error>;
+    fn add_item(&mut self, item: Item, path: ItemPath) -> Result<(), Error>;
     fn recursive_filter(&mut self, predicate: fn(&Item) -> bool);
-    fn format(&self, lines: Vec<bool>) -> OutputBuffer;
-    fn format_overview(&self, lines: Vec<bool>) -> OutputBuffer;
+    fn format(&self, lines: Vec<bool>) -> Result<OutputBuffer, Error>;
+    fn format_overview(&self, lines: Vec<bool>) -> Result<OutputBuffer, Error>;
     fn prune(&mut self);
-    fn remove_by_path(&mut self, path: ItemPath) -> Result<Item, String>;
+    fn remove_by_path(&mut self, path: &ItemPath) -> Result<Item, Error>;
 }
 
-impl ItemList for List {
-    fn parse(file: String) -> List {
+impl TodoList for List {
+    fn parse(file: String) -> Result<List, Error> {
         let mut items: Vec<Item> = vec![];
 
         let content = file.lines();
 
         if content.clone().count() <= 0 {
-            return vec![];
+            return Ok(vec![]);
         }
 
-        let starting_indentation = content.clone().nth(0).unwrap().chars().count()
-            - content.clone().nth(0).unwrap().trim_start().chars().count();
+        let first_row = match_option!(
+            content.clone().nth(0),
+            ListParser,
+            format!("Could not get the first line of the list.")
+        );
+
+        let starting_indentation =
+            first_row.chars().count() - first_row.trim_start().chars().count();
 
         for (i, line) in content.clone().enumerate() {
             let current_indentation = line.chars().count() - line.trim_start().chars().count();
 
             let mut next_indentation = 0;
             if i < content.clone().count() - 1 {
-                next_indentation = content.clone().nth(i + 1).unwrap().chars().count()
-                    - content
-                        .clone()
-                        .nth(i + 1)
-                        .unwrap()
-                        .trim_start()
-                        .chars()
-                        .count();
+                let next_line = match_option!(
+                    content.clone().nth(i + 1),
+                    ListParser,
+                    format!("Could not get line number {} of the list", i + 2)
+                );
+
+                next_indentation =
+                    next_line.chars().count() - next_line.trim_start().chars().count();
             }
 
             let mut sub_items: Vec<Item> = vec![];
@@ -52,7 +60,7 @@ impl ItemList for List {
                 break;
             }
 
-            // Skip the lower-level lines, they are going ot behandled recursively
+            // Skip the lower-level lines, they are going to be handled recursively
             if current_indentation > starting_indentation {
                 continue;
             }
@@ -62,11 +70,25 @@ impl ItemList for List {
                 let mut remaining_lines = content.clone();
                 remaining_lines.nth(i);
                 if remaining_lines.clone().count() > 0 {
-                    sub_items = List::parse(remaining_lines.collect::<Vec<&str>>().join("\n"));
+                    sub_items = match_error!(
+                        List::parse(remaining_lines.collect::<Vec<&str>>().join("\n")),
+                        ListParser,
+                        format!(
+                            "Could not parse list of sub-items at line {index}.",
+                            index = i + 1
+                        )
+                    );
                 }
             }
 
-            items.push(Item::from(line.to_string(), sub_items));
+            items.push(match_error!(
+                Item::from(line.to_string(), sub_items),
+                ListParser,
+                format!(
+                    "Could not parse item at line {index}: '{line}'.",
+                    index = i + 1
+                )
+            ));
         }
 
         items.sort_by(|a, b| {
@@ -81,7 +103,7 @@ impl ItemList for List {
             }
         });
 
-        items
+        Ok(items)
     }
 
     fn to_save(&self) -> String {
@@ -95,7 +117,7 @@ impl ItemList for List {
     }
 
     /// Get a mutable reference to an item that matches a certain path.
-    fn find(&mut self, path: ItemPath) -> Result<&mut Item, String> {
+    fn find(&mut self, path: &ItemPath) -> Result<&mut Item, Error> {
         let mut matching_itmes = vec![];
 
         for (i, item) in self.clone().into_iter().enumerate() {
@@ -110,38 +132,52 @@ impl ItemList for List {
         } else {
             for i in matching_itmes {
                 let mut cloned_list = self.clone();
-                let result = cloned_list[i].items.find(path.clone().shifted());
+                let result = cloned_list[i].items.find(&path.clone().shifted());
 
                 if result.is_ok() {
-                    return self[i].items.find(path.clone().shifted());
+                    return self[i].items.find(&path.clone().shifted());
                 }
             }
         }
 
-        Err(format!(
-            "Could not find an item that started with '{}'",
-            path.item_prefixes[0]
+        Err(propagate!(
+            ItemList,
+            format!(
+                "Could not find an item that started with '{}'",
+                path.item_prefixes[0]
+            )
         ))
     }
 
-    fn add_item(&mut self, item: Item, path: ItemPath) {
+    fn add_item(&mut self, item: Item, path: ItemPath) -> Result<(), Error> {
         // If there is no item specified, simply add it to the root of the list.
         if path.item_prefixes.len() == 0 {
             self.push(item.clone());
         } else {
-            self.find(path).unwrap().items.push(item);
+            let found_item = match_error!(
+                self.find(&path),
+                ItemList,
+                format!("Could not find item at path '{}'.", path.display())
+            );
+            found_item.items.push(item);
         }
+
+        Ok(())
     }
 
-    fn format(&self, lines: Vec<bool>) -> OutputBuffer {
+    fn format(&self, lines: Vec<bool>) -> Result<OutputBuffer, Error> {
         let mut output = OutputBuffer::new();
 
         for (i, item) in self.clone().into_iter().enumerate() {
             let is_end = i >= self.len() - 1;
-            output.append(item.clone().format(is_end, lines.clone()));
+            output.append(match_error!(
+                item.format(is_end, lines.clone()),
+                ItemList,
+                format!("Could not format item in list.")
+            ));
         }
 
-        output
+        Ok(output)
     }
 
     fn recursive_filter(&mut self, predicate: fn(&Item) -> bool) {
@@ -168,7 +204,7 @@ impl ItemList for List {
         }
     }
 
-    fn remove_by_path(&mut self, path: ItemPath) -> Result<Item, String> {
+    fn remove_by_path(&mut self, path: &ItemPath) -> Result<Item, Error> {
         let mut matching_itmes = vec![];
 
         for (i, item) in self.clone().into_iter().enumerate() {
@@ -185,28 +221,35 @@ impl ItemList for List {
         } else {
             for i in matching_itmes {
                 let mut cloned_list = self.clone();
-                let result = cloned_list[i].items.remove_by_path(path.clone().shifted());
+                let result = cloned_list[i].items.remove_by_path(&path.clone().shifted());
 
                 if result.is_ok() {
-                    return self[i].items.remove_by_path(path.clone().shifted());
+                    return self[i].items.remove_by_path(&path.clone().shifted());
                 }
             }
         }
 
-        Err(format!(
-            "Could not find an item that started with '{}'",
-            path.item_prefixes[0]
+        Err(propagate!(
+            ItemList,
+            format!(
+                "Could not find the item at path '{}' to remove.",
+                path.display()
+            )
         ))
     }
 
-    fn format_overview(&self, lines: Vec<bool>) -> OutputBuffer {
+    fn format_overview(&self, lines: Vec<bool>) -> Result<OutputBuffer, Error> {
         let mut output = OutputBuffer::new();
 
         for (i, item) in self.clone().into_iter().enumerate() {
             let is_end = i >= self.len() - 1;
-            output.append(item.clone().format_overview(true, is_end, lines.clone()));
+            output.append(match_error!(
+                item.clone().format_overview(true, is_end, lines.clone()),
+                ItemList,
+                format!("Could not format list overview.")
+            ));
         }
 
-        output
+        Ok(output)
     }
 }

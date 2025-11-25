@@ -1,73 +1,81 @@
-use std::io::{Error, ErrorKind};
+use crate::{
+    error::{CodeComponent, Error},
+    match_error, match_result, propagate,
+    todo::{document, item},
+};
 
-use crate::todo::{document, item};
-
-// #list/item1/nesteditem
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ItemPath {
     pub document: String,
     pub item_prefixes: Vec<String>,
 }
 
-impl std::convert::TryFrom<&str> for ItemPath {
-    type Error = std::io::Error;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+impl ItemPath {
+    pub fn try_from(value: &String) -> Result<Self, Error> {
         let mut segments = value.split("/");
         let mut document = None;
 
-        let first_segment = segments.clone().next();
-
-        if first_segment.is_none() {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                "An Item Path cannot start with a '/'.",
-            ));
+        let first_segment = match segments.clone().next() {
+            Some(val) => val,
+            _ => {
+                return Err(propagate!(
+                    CodeComponent::DocumentPath,
+                    format!("Couldn't split the string ('{value}') apart. Is it missing slashes?")
+                ));
+            }
         };
 
-        if first_segment.unwrap().starts_with("#") {
-            document = Some(first_segment.unwrap()[1..].to_string());
+        if first_segment.starts_with("#") {
+            document = Some(first_segment[1..].to_string());
             segments.next();
         };
 
-        let mut new_path = ItemPath::new(document, vec![]);
+        let mut prefxes = vec![];
 
         for piece in segments {
             if piece == "" {
-                continue;
+                return Err(propagate!(
+                    CodeComponent::DocumentPath,
+                    format!("There appears to be an empty section in the path ('{value}').")
+                ));
             }
 
-            new_path.item_prefixes.push(piece.to_string());
+            prefxes.push(piece.to_string());
         }
+
+        let new_path = match_error!(
+            ItemPath::new(document, prefxes),
+            CodeComponent::DocumentPath,
+            format!("Couldn't create the Item Path.")
+        );
 
         Ok(new_path)
     }
 }
 
-impl std::convert::TryFrom<&String> for ItemPath {
-    type Error = std::io::Error;
-
-    fn try_from(value: &String) -> Result<Self, Self::Error> {
-        return ItemPath::try_from(&value[..]);
-    }
-}
-
 impl ItemPath {
-    pub fn new(document: Option<String>, prefixes: Vec<String>) -> ItemPath {
-        if document.is_some() {
-            ItemPath {
-                document: document.unwrap(),
-                item_prefixes: prefixes,
-            }
-        } else {
-            ItemPath {
-                document: document::Document::from_path(
-                    &std::env::current_dir().expect("You need to be in a directory."),
+    pub fn new(document: Option<String>, prefixes: Vec<String>) -> Result<ItemPath, Error> {
+        let current_dir = match_result!(
+            std::env::current_dir(),
+            CodeComponent::DocumentPath,
+            "Couldn't read your current directory".to_string()
+        );
+        let normalized_document = document.unwrap_or(
+            match_error!(
+                document::Document::from_path(&current_dir),
+                CodeComponent::DocumentPath,
+                format!(
+                    "Could not fetch the document in your current directory ('{}')",
+                    current_dir.display()
                 )
-                .name,
-                item_prefixes: prefixes,
-            }
-        }
+            )
+            .name,
+        );
+
+        Ok(ItemPath {
+            document: normalized_document,
+            item_prefixes: prefixes,
+        })
     }
 
     pub fn matches(self, item: item::Item) -> bool {

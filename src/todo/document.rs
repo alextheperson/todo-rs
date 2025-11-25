@@ -1,20 +1,26 @@
-use crate::ItemList;
 use crate::date::Date;
-use crate::output;
+use crate::error::{CodeComponent, Error};
+use crate::output::buffer::OutputBuffer;
+use crate::output::color::Color;
+use crate::output::line::OutputLine;
+use crate::output::segment::OutputSegment;
+use crate::output::style::Style;
 use crate::todo::list;
+use crate::todo::list::TodoList;
+use crate::{match_error, match_option, match_result, propagate};
 
 #[derive(Debug, Clone)]
 pub struct Document {
     pub name: String,
     pub path: std::path::PathBuf,
-    pub priority: i16,
+    pub priority: i32,
     pub date: Option<Date>,
     pub items: list::List,
     pub archived: bool,
 }
 
 impl Document {
-    pub fn from(file: String, path: std::path::PathBuf) -> Document {
+    pub fn from(file: String, path: std::path::PathBuf) -> Result<Document, Error> {
         let lines = file.lines();
 
         let mut name = "Unnamed Todo List".to_string();
@@ -24,24 +30,49 @@ impl Document {
         let mut lines_to_skip = 0;
 
         for (i, line) in lines.clone().enumerate() {
-            if line.starts_with("#") {
-                lines_to_skip += 1;
-                if i == 0 {
-                    name = line[2..].to_string()
-                } else {
-                    let mut parts = line.split(" ").skip(1);
-                    let property = parts.next().unwrap();
+            if !line.starts_with("#") {
+                continue;
+            }
 
-                    match property {
-                        "priority" => {
-                            priority = parts.collect::<Vec<&str>>().join(" ").parse().unwrap();
-                        }
-                        "date" => {
-                            date = Date::from(&parts.clone().collect::<Vec<&str>>().join(" ")).ok();
-                        }
-                        "archived" => archived = true,
-                        _ => println!("Unknown property! '{}'", property),
-                    }
+            lines_to_skip += 1;
+
+            if i == 0 {
+                name = line[2..].to_string();
+                continue;
+            }
+
+            let mut parts = line.split(" ").skip(1);
+            // Find the name of the property, if there is one.
+            let property_name = match_option!(
+                parts.next(),
+                CodeComponent::DocumentParser,
+                format!("Found malformed metadata line: '{}'", line)
+            );
+            match property_name {
+                "priority" => {
+                    let rest = parts.clone().collect::<Vec<&str>>().join(" ");
+                    priority = match_result!(
+                        rest.parse::<i32>(),
+                        CodeComponent::DocumentParser,
+                        format!(
+                            "Could not parse property value to i32. Got value '{}'.",
+                            rest
+                        )
+                    )
+                }
+                "date" => {
+                    date = Date::from(&parts.clone().collect::<Vec<&str>>().join(" ")).ok();
+                }
+                "archived" => archived = true,
+                _ => {
+                    return Err(propagate!(
+                        CodeComponent::DocumentParser,
+                        format!(
+                            "Found unknown property '{}' on line {}.",
+                            property_name,
+                            i + 1
+                        )
+                    ));
                 }
             }
         }
@@ -51,26 +82,41 @@ impl Document {
             .skip(lines_to_skip + 1)
             .collect::<Vec<&str>>()
             .join("\n");
-        let items = list::List::parse(remaining_lines);
+        let items = match_error!(
+            list::List::parse(remaining_lines),
+            CodeComponent::DocumentParser,
+            format!(
+                "Could not parse the list of items in the document at path {}",
+                path.display()
+            )
+        );
 
-        Document {
+        Ok(Document {
             name: name,
             path: path,
             priority: priority,
             date: date,
             items: items,
             archived: archived,
-        }
+        })
     }
 
-    pub fn from_path(path: &std::path::PathBuf) -> Document {
-        let mut normalized_path = std::fs::canonicalize(&path).unwrap();
+    pub fn from_path(path: &std::path::PathBuf) -> Result<Document, Error> {
+        let mut normalized_path = match_result!(
+            std::fs::canonicalize(&path),
+            CodeComponent::DocumentParser,
+            format!("Could not normalize the path '{}'.", path.display())
+        );
         normalized_path.push(".todo");
 
-        let content = std::fs::read_to_string(&normalized_path).expect(&format!(
-            "should have been able to read the file {path}",
-            path = normalized_path.display()
-        ));
+        let content = match_result!(
+            std::fs::read_to_string(&normalized_path),
+            CodeComponent::DocumentParser,
+            format!(
+                "Could not read from the path '{path}'.",
+                path = normalized_path.display()
+            )
+        );
         Document::from(content, path.clone())
     }
 
@@ -81,8 +127,8 @@ impl Document {
         if self.priority != 0 {
             output += &format!("# priority {priority}\n", priority = &self.priority);
         }
-        if self.date.is_some() {
-            output += &format!("# date {date}\n", date = &self.date.unwrap().display());
+        if let Some(date) = self.date {
+            output += &format!("# date {date}\n", date = date.display());
         }
         if self.archived {
             output += &format!("# archived\n");
@@ -95,62 +141,67 @@ impl Document {
         output
     }
 
-    pub fn save(&self) {
-        std::fs::write(self.path.as_path().join(".todo"), self.to_string()).expect(&format!(
-            "should have been able to save the '.todo' file at {}",
-            self.path.display()
-        ));
+    pub fn save(&self) -> Result<(), Error> {
+        match_result!(
+            std::fs::write(self.path.as_path().join(".todo"), self.to_string()),
+            CodeComponent::Document,
+            format!(
+                "should have been able to save the '.todo' file at {}",
+                self.path.display()
+            )
+        );
+
+        Ok(())
     }
 
-    pub fn format(&self, path: std::path::PathBuf) -> output::buffer::OutputBuffer {
-        let mut output = output::buffer::OutputBuffer::new();
+    pub fn format(&self) -> Result<OutputBuffer, Error> {
+        let mut output = OutputBuffer::new();
 
-        let mut first_line = output::line::OutputLine::new();
+        let mut first_line = OutputLine::new();
 
-        first_line.add(output::segment::OutputSegment::new(
+        first_line.add(OutputSegment::new(
             "╭ # ",
-            output::color::Color::Default,
-            *output::style::Style::new().dim(),
+            Color::Default,
+            *Style::new().dim(),
         ));
 
-        if self.date.is_some() {
-            first_line.add(output::segment::OutputSegment::new(
-                &format!(
-                    "{name} - {date} ",
-                    name = self.name,
-                    date = self.date.unwrap().display()
-                ),
-                output::color::Color::Default,
-                output::style::Style::normal(),
+        if let Some(date) = self.date {
+            first_line.add(OutputSegment::new(
+                &format!("{name} - {date} ", name = self.name, date = date.display()),
+                Color::Default,
+                Style::normal(),
             ));
         } else {
-            first_line.add(output::segment::OutputSegment::new(
+            first_line.add(OutputSegment::new(
                 &format!("{name} ", name = self.name),
-                output::color::Color::Default,
-                output::style::Style::normal(),
+                Color::Default,
+                Style::normal(),
             ));
         }
 
-        first_line.add(output::segment::OutputSegment::new(
-            &format!("({path})", path = path.as_path().display()),
-            output::color::Color::Default,
-            *output::style::Style::new().dim(),
+        first_line.add(OutputSegment::new(
+            &format!("({path})", path = self.path.as_path().display()),
+            Color::Default,
+            *Style::new().dim(),
         ));
 
         output.add(first_line);
 
         output.add(
-            output::line::OutputLine::new()
-                .add(output::segment::OutputSegment::new(
-                    "│",
-                    output::color::Color::Default,
-                    *output::style::Style::new().dim(),
-                ))
+            OutputLine::new()
+                .add(OutputSegment::new("│", Color::Default, *Style::new().dim()))
                 .clone(),
         );
 
-        output.append(self.items.clone().format(vec![]));
+        output.append(match_error!(
+            self.items.format(vec![]),
+            CodeComponent::Document,
+            format!(
+                "Could not format the items of the document at path '{}'",
+                self.path.display()
+            )
+        ));
 
-        output
+        Ok(output)
     }
 }

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::Render;
 use crate::output::RenderFormat;
 

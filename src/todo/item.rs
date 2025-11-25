@@ -1,17 +1,19 @@
-use crate::ItemList;
 use crate::date;
 use crate::date::Date;
+use crate::error::{CodeComponent::ItemParser, CodeComponent::TodoItem, Error};
 use crate::output::buffer::OutputBuffer;
 use crate::output::color::Color;
 use crate::output::line::OutputLine;
 use crate::output::segment::OutputSegment;
 use crate::output::style::Style;
+use crate::todo::list::TodoList;
+use crate::{match_error, match_option};
 
 #[derive(Debug, Clone)]
 pub struct Item {
     pub completed: bool,
     pub archived: bool,
-    pub priority: i16,
+    pub priority: i64,
     pub date: Option<date::Date>,
     pub name: String,
     pub items: crate::todo::list::List,
@@ -20,14 +22,14 @@ pub struct Item {
 impl Item {
     /// Parses a single line from a file to create a todo item. It does not handle parsing
     /// children.
-    pub fn from(input: String, sub_items: Vec<Item>) -> Item {
+    pub fn from(input: String, sub_items: Vec<Item>) -> Result<Item, Error> {
         let mut sections = input.split("\\");
 
         let archived = &sections.clone().next().unwrap_or("- [ ]").trim_start()[3..4] == "a";
         let completed = &sections.next().unwrap_or("- [ ]").trim_start()[3..4] == "x" || archived;
 
-        let has_priority_value = sections.clone().next().unwrap_or("").parse::<i16>().is_ok();
-        let priority: i16 = if has_priority_value {
+        let has_priority_value = sections.clone().next().unwrap_or("").parse::<i64>().is_ok();
+        let priority = if has_priority_value {
             sections.next().unwrap_or("0").trim().parse().unwrap_or(0)
         } else {
             0
@@ -35,14 +37,15 @@ impl Item {
 
         let has_date_value = (sections.clone().count() > 1) && sections.clone().next().is_some();
         let date = if has_date_value {
-            let section = &sections.next().unwrap().trim().to_string();
+            let section = &match_option!(
+                sections.next(),
+                ItemParser,
+                format!("Could not parse item when looking for a date.")
+            )
+            .trim()
+            .to_string();
             if section != "" {
-                let parsed_date = Date::from(section);
-                if parsed_date.is_err() {
-                    None
-                } else {
-                    Some(parsed_date.unwrap())
-                }
+                Date::from(section).ok()
             } else {
                 None
             }
@@ -61,14 +64,14 @@ impl Item {
         let mut children = sub_items.clone();
         children.sort_by(|a, b| b.priority.cmp(&a.priority));
 
-        Item {
+        Ok(Item {
             name: name,
             priority: priority,
             date: date,
             completed: completed,
             archived: archived,
             items: children,
-        }
+        })
     }
 
     /// This formats it for saving, NOT FOR DISPLAY
@@ -84,10 +87,9 @@ impl Item {
             " "
         };
         let priority = self.priority;
-        let date = if self.date.is_some() {
-            &self.date.clone().unwrap().display()
-        } else {
-            ""
+        let date = match self.date {
+            Some(val) => &val.display(),
+            _ => "",
         };
         let name = &self.name;
 
@@ -119,19 +121,28 @@ impl Item {
     /// This is a number from 0 to 7+, that represents how close today is to the item's date
     /// It is more than 7 if the day has already passed.
     /// It starts ticking up at 7 days until the date
-    pub fn urgency(&self) -> Option<i16> {
-        if self.date.is_some() {
-            let distance = self.date.unwrap().distance(Date::today());
+    pub fn urgency(&self) -> Result<Option<i64>, Error> {
+        if let Some(date) = self.date {
+            let distance = match_error!(
+                date.distance(match_error!(
+                    Date::today(),
+                    TodoItem,
+                    format!("Could not get the date today.")
+                )),
+                TodoItem,
+                format!("Could not get the temporal distance to the item.")
+            );
             if distance > 7 {
-                return None;
+                return Ok(None);
             } else {
-                return Some((7 - distance).try_into().unwrap());
+                return Ok(Some(7 - distance));
             }
+        } else {
+            return Ok(None);
         }
-        None
     }
 
-    pub fn format(&self, end: bool, lines: Vec<bool>) -> OutputBuffer {
+    pub fn format(&self, end: bool, lines: Vec<bool>) -> Result<OutputBuffer, Error> {
         let mut output = OutputBuffer::new();
         let mut output_line = OutputLine::new();
 
@@ -164,33 +175,35 @@ impl Item {
         let mut new_lines = lines.clone();
         new_lines.push(end);
 
+        let urgency = match_error!(
+            self.urgency(),
+            TodoItem,
+            format!("Could not get the item's urgency.")
+        );
         let priority = if self.completed {
             self.priority
         } else {
-            self.priority + self.urgency().unwrap_or(0)
+            self.priority + urgency.unwrap_or(0)
         };
 
-        let date = if !self.completed && self.urgency().is_some() {
-            &format!(
+        let date = match urgency {
+            Some(urgency) => &format!(
                 "{num} day{s}",
-                num = 7 - self.urgency().unwrap(),
-                s = if 7 - self.urgency().unwrap() == 1 {
-                    ""
+                num = 7 - urgency,
+                s = if 7 - urgency == 1 { "" } else { "s" }
+            ),
+            _ => {
+                if let Some(date) = self.date {
+                    &date.display()
                 } else {
-                    "s"
+                    ""
                 }
-            )
-        } else {
-            if self.date.is_some() {
-                &self.date.clone().unwrap().display()
-            } else {
-                ""
             }
         };
 
         // Set colors based on the priority
         let color = match priority {
-            i16::MIN..=-7 => Color::Green,
+            i64::MIN..=-7 => Color::Green,
             -6 => Color::Green,
             -5 => Color::Green,
             -4 => Color::Blue,
@@ -204,7 +217,7 @@ impl Item {
             4 => Color::Magenta,
             5 => Color::Red,
             6 => Color::Red,
-            7..=i16::MAX => Color::Red,
+            7..=i64::MAX => Color::Red,
         };
 
         let style = if self.completed {
@@ -237,40 +250,58 @@ impl Item {
 
         output.add(output_line);
 
-        output.append(self.items.clone().format(new_lines));
+        output.append(match_error!(
+            self.items.format(new_lines),
+            TodoItem,
+            format!("Could not format child items")
+        ));
 
-        output
+        Ok(output)
     }
 
-    pub fn format_detail(&self, show_children: bool) -> OutputBuffer {
+    pub fn format_detail(&self, show_children: bool) -> Result<OutputBuffer, Error> {
         let mut output = OutputBuffer::new();
+
+        let urgency = match_error!(
+            self.urgency(),
+            TodoItem,
+            format!("Could not get the item's urgency.")
+        );
 
         let priority = if self.completed {
             self.priority
         } else {
-            self.priority + self.urgency().unwrap_or(0)
+            self.priority + urgency.unwrap_or(0)
         };
 
-        let date = if self.date.is_some() {
-            &self.date.clone().unwrap().display()
-        } else {
-            ""
+        let date = match self.date {
+            Some(date) => &date.clone().display(),
+            _ => "",
         };
 
-        let date_distance = self.date.unwrap().distance(Date::today());
-        let relative_date = if self.date.is_some() {
-            &format!(
-                "{num} day{s}",
-                num = date_distance,
-                s = if date_distance == 1 { "" } else { "s" }
-            )
-        } else {
-            ""
+        let relative_date = match self.date {
+            Some(date) => {
+                let date_distance = match_error!(
+                    date.distance(match_error!(
+                        Date::today(),
+                        TodoItem,
+                        format!("Could not get today's date.")
+                    )),
+                    TodoItem,
+                    format!("Could not get the temporal distance to the item.")
+                );
+                &format!(
+                    "{num} day{s}",
+                    num = date_distance,
+                    s = if date_distance == 1 { "" } else { "s" }
+                )
+            }
+            _ => "",
         };
 
         // Set colors based on the priority
         let color = match priority {
-            i16::MIN..=-7 => Color::Green,
+            i64::MIN..=-7 => Color::Green,
             -6 => Color::Green,
             -5 => Color::Green,
             -4 => Color::Blue,
@@ -284,7 +315,7 @@ impl Item {
             4 => Color::Magenta,
             5 => Color::Red,
             6 => Color::Red,
-            7..=i16::MAX => Color::Red,
+            7..=i64::MAX => Color::Red,
         };
 
         let mut priority_line = OutputLine::new();
@@ -321,10 +352,14 @@ impl Item {
         output.add(name_line);
 
         if show_children {
-            output.append(self.items.clone().format_overview(vec![]));
+            output.append(match_error!(
+                self.items.clone().format_overview(vec![]),
+                TodoItem,
+                format!("Could not format overview of the item's children.")
+            ));
         }
 
-        output
+        Ok(output)
     }
 
     pub fn format_overview(
@@ -332,7 +367,7 @@ impl Item {
         show_children: bool,
         end: bool,
         lines: Vec<bool>,
-    ) -> OutputBuffer {
+    ) -> Result<OutputBuffer, Error> {
         let mut output = OutputBuffer::new();
         let mut output_line = OutputLine::new();
 
@@ -365,15 +400,21 @@ impl Item {
         let mut new_lines = lines.clone();
         new_lines.push(end);
 
+        let urgency = match_error!(
+            self.urgency(),
+            TodoItem,
+            format!("Could not get the item's urgency.")
+        );
+
         let priority = if self.completed {
             self.priority
         } else {
-            self.priority + self.urgency().unwrap_or(0)
+            self.priority + urgency.unwrap_or(0)
         };
 
         // Set colors based on the priority
         let color = match priority {
-            i16::MIN..=-7 => Color::Green,
+            i64::MIN..=-7 => Color::Green,
             -6 => Color::Green,
             -5 => Color::Green,
             -4 => Color::Blue,
@@ -387,7 +428,7 @@ impl Item {
             4 => Color::Magenta,
             5 => Color::Red,
             6 => Color::Red,
-            7..=i16::MAX => Color::Red,
+            7..=i64::MAX => Color::Red,
         };
 
         let style = if self.completed {
@@ -419,9 +460,13 @@ impl Item {
         output.add(output_line);
 
         if show_children {
-            output.append(self.items.clone().format_overview(new_lines));
+            output.append(match_error!(
+                self.items.clone().format_overview(new_lines),
+                TodoItem,
+                format!("Could not format the overview of the item's children")
+            ));
         }
 
-        output
+        Ok(output)
     }
 }
