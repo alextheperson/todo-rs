@@ -9,15 +9,19 @@ mod error;
 mod output;
 mod search_paths;
 mod todo;
+mod version;
 
 use crate::command_executors::*;
 use crate::date::Date;
 use crate::error::{CodeComponent, Error};
 use crate::output::RenderFormat;
 use crate::todo::path::ItemPath;
+use crate::version::{LONG_VERSION, VERSION};
 
 fn main() {
-    let command = commands::build();
+    let command = commands::build()
+        .version(VERSION)
+        .long_version(LONG_VERSION);
 
     let matches = command.clone().get_matches();
 

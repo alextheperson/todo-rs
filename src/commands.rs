@@ -44,7 +44,6 @@ pub fn build() -> Command {
     Command::new("todo-rs")
         .bin_name("todo")
         .author("Alex Solis, dev@alexsol.is")
-        .version("1.0")
         .about("Manage you todo list with directory-scoped .todo files.")
         .after_long_help(
             "CONCEPT
