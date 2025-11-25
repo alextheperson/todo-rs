@@ -1,18 +1,22 @@
 [package]
 name = "todo-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 build = "build.rs"
+license = "GNU GPLv3"
+readme = "README.md"
+licenceFile = "LICENSE.md"
+authors = ["Alex Solis <git@alexsol.is>"]
+repository = "https://github.com/alextheperson/todo-rs/"
+homepage = "https://github.com/alextheperson/todo-rs/"
 
 [[bin]]
-edition = "2024"
 name = "todo"
 path = "src/main.rs"
 
 [dependencies]
 chrono = "0.4.42"
 clap = "4.5.48"
-clap_complete = "4.5.60"
 
 [build-dependencies]
 clap = "4.5.48"
