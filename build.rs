@@ -7,33 +7,36 @@ use std::path::PathBuf;
 include!("./src/commands.rs");
 
 fn main() {
-    let git_describe = std::process::Command::new("git")
-        .args(["describe", "--always", "--tags", "--dirty"])
-        .output()
-        .expect("Could not get version info from git.");
-
-    let git_version =
-        std::str::from_utf8(&git_describe.stdout).expect("Couldn't parse git version output.");
-
     let cargo_version = env!("CARGO_PKG_VERSION");
 
-    assert!(
-        git_version.contains(cargo_version),
-        "=> Crate version and Git version do not match."
-    );
+    if let Ok(git_describe) = std::process::Command::new("git")
+        .args(["describe", "--always", "--tags", "--dirty"])
+        .output()
+    {
+        let git_version =
+            std::str::from_utf8(&git_describe.stdout).expect("Couldn't parse git version output.");
 
-    println!("cargo::rustc-env=GIT_VERSION={}", git_version);
+        assert!(
+            git_version.contains(cargo_version),
+            "=> Crate version ({cargo_version}) and Git version ({git_version}) do not match."
+        );
+        println!("cargo::rustc-env=GIT_VERSION={}", git_version);
+    } else {
+        println!("cargo::rustc-env=GIT_VERSION={}", cargo_version);
+    }
 
-    let git_revparse = std::process::Command::new("git")
+    if let Ok(git_revparse) = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
         .output()
-        .expect("Could not get commit hash info from git.");
+    {
+        let git_commit_hash = &std::str::from_utf8(&git_revparse.stdout)
+            .expect("Couldn't parse git version output.")
+            .to_string()[0..7];
 
-    let git_commit_hash = &std::str::from_utf8(&git_revparse.stdout)
-        .expect("Couldn't parse git version output.")
-        .to_string()[0..7];
-
-    println!("cargo::rustc-env=GIT_HASH={}", git_commit_hash);
+        println!("cargo::rustc-env=GIT_HASH={}", git_commit_hash);
+    } else {
+        println!("cargo::rustc-env=GIT_HASH=");
+    }
 
     let Some(outdir) = env::var_os("OUT_DIR") else {
         return;
