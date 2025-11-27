@@ -28,19 +28,31 @@ impl ItemPath {
         if first_segment.starts_with("#") {
             document = Some(first_segment[1..].to_string());
             segments.next();
+        } else if first_segment == "" {
+            // If the first item is blank, that means that the path starts with a slash, so we
+            // should infer the document name.
+            document = None;
+            segments.next();
         };
 
         let mut prefxes = vec![];
 
-        for piece in segments {
-            if piece == "" {
-                return Err(propagate!(
-                    CodeComponent::DocumentPath,
-                    format!("There appears to be an empty section in the path ('{value}').")
-                ));
-            }
+        let segment_count = segments.clone().count();
 
-            prefxes.push(piece.to_string());
+        for (i, piece) in segments.into_iter().enumerate() {
+            if piece == "" {
+                if i == segment_count - 1 {
+                    // It isn't an error if it ends with a slash
+                    continue;
+                } else {
+                    return Err(propagate!(
+                        CodeComponent::DocumentPath,
+                        format!("There appears to be an empty section in the path ('{value}').")
+                    ));
+                }
+            } else {
+                prefxes.push(piece.to_string());
+            }
         }
 
         let new_path = match_error!(
