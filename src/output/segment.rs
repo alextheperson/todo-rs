@@ -18,6 +18,18 @@ impl OutputSegment {
             style: style,
         }
     }
+
+    fn escape(content: String, format: &RenderFormat) -> String {
+        match format {
+            RenderFormat::Pango | RenderFormat::HTML | RenderFormat::HtmlClass => content
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+                .replace("'", "&#39;"),
+            _ => content.to_string(),
+        }
+    }
 }
 
 impl Render for OutputSegment {
@@ -27,7 +39,7 @@ impl Render for OutputSegment {
                 "{style}{color}{content}{nostyle}{nocolor}",
                 style = self.style.render(&format),
                 color = self.color.render(&format),
-                content = self.content,
+                content = &OutputSegment::escape(self.content, format),
                 nostyle = style::Style::normal().render(&format),
                 nocolor = color::Color::Default.render(&format)
             ),
@@ -35,19 +47,19 @@ impl Render for OutputSegment {
                 "<span style=\"{style}{color}\">{content}</span>",
                 style = self.style.render(&format),
                 color = self.color.render(&format),
-                content = self.content
+                content = &OutputSegment::escape(self.content, format),
             ),
             RenderFormat::HtmlClass => format!(
                 "<span class=\"{style}{color}\">{content}</span>",
                 style = self.style.render(&format),
                 color = self.color.render(&format),
-                content = self.content
+                content = &OutputSegment::escape(self.content, format),
             ),
             RenderFormat::Pango => format!(
                 "<span {style}{color}>{content}</span>",
                 style = self.style.render(&format),
                 color = self.color.render(&format),
-                content = self.content
+                content = &OutputSegment::escape(self.content, format),
             ),
         }
     }
