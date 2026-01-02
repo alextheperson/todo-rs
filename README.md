@@ -7,7 +7,11 @@
 
 **Scoped** - `todo-rs` will search up though your file system to find `.todo` files. This lets you have both user-wide and project-specific todo lists.
 
-**Priority** - It will sort your items based on what priorty you give them.
+**Priority** - It will sort your items based on what priority you give them. Additionally, you can give items dates, which increases their priority as the date approaches.
+
+**Archives** - Once you complete an item, you can also archive it, which hides it in the list, but keeps it around in case you ever want to look back at what you have accomplished.
+
+**Date Parsing** - You can give it dates like `'tomorrow'`, `'next month'`, or `'january'`, and it should understand what you mean.
 
 ## Installation
 ### Flake (NixOS + Home Manager)
@@ -54,31 +58,35 @@ home.packages = with pkgs; [
 
 ## Usage
 ### Basic Usage
-To use `todo-rs`, use the `todo` command. For example, `$ todo list` will list all of you todo items from the current directory and all of its parent directories (up to your home directory).
+To use `todo-rs`, use the `todo` command. For example, `$ todo list` will list all of your todo items from the current directory and all of its parent directories (up to your home directory). You can also pass in the `-d` (down) flag to make in go the other way.
 
-To create a new todo list in the current directory, use `$ todo new`.
+To create a new todo list in the current directory, use `$ todo init`.
 
 You can add an item with `$ todo add "#todo list" "new item"`.
 
-Mark items as complete or toggle their completion with the `todo complete "item name"` or `todo toggle "item name"` commands respectively.
+Mark items as complete or toggle their completion with the `$ todo complete "item name"` or `$ todo toggle "item name"` commands respectively.
 
 ### Advanced usage
-There isn't much room for advanced usage yet, but here are some extra things that you might want to know.
+`todo-rs` supports nested items. If you want to point a command to a nested item, just use slashes (e.g. `#list/item/sub item/really nested`). If you leave out the name of the list, then it will try to use a list in your current directory.
 
-Generally, the names of todo lists are prefixed with a `#` (`#todo list`), you can use this syntax in commands, though currently none of them react differently, apart from removing the prefix before parsing the name.
-
-`todo-rs` supports nested items. If you want to point a command to a nested item, just use slashes (eg `item/sub item/really nested`).
+You can also specify the format that you want the list to output in. For example, I have a Waybar that displays my todo list. In order to get the output into the Pango format that Waybar needs, I use `$ todo list ~ -d --format pango`
 
 ## `.todo` File Syntax
-The syntax of the `.todo` files is very simple. The first line is a # followed by the name of the list, then followed by a newline:
+The syntax of the `.todo` files is very simple. The first line is a # followed by the name of the list, then optional metadata, followed by a newline:
 
 ```
 # Todo List
+# date 15/dec/2027
+# priority 3
+# archived
 
-{{items}}
+- [ ] One Fish
+- [ ] Two Fish
+ - [x] Red Fish
+- [a] Blue Fish
 ```
 
-For the actual items. they use `- [ ]` and `- [x]` to represent their completion status, like in some flavors of Markdown. After that they (optionally) have a priority number and/or date, delimited by backslashes. Finally, nested items are represented with indentation. An example file might look like this:
+For the actual items. they use `- [ ]` and `- [x]` to represent their completion status, and `- [a]` is an archived item. After that they (optionally) have a priority number and/or date, delimited by backslashes. Finally, nested items are represented with indentation. An example file might look like this:
 
 ```
 # Example Todo List
@@ -92,21 +100,10 @@ For the actual items. they use `- [ ]` and `- [x]` to represent their completion
 This will render out as:
 
 ```
-╭ #  Example Todo List (/path/to/list/.todo)
+╭ # Example Todo List (/home/alex/Documents)
 │
 ├ □ 5 Fix the broken thing
-├ ▣ 4 Mount the shelf
-├ □ 2 (6/13/2026) Replant the garden
-│ ├ □ 0 Research seeds
+│ ╰ □ 0 Research seeds
+├ □ 2 (13-Jun-2026) Replant the garden
+╰ ▣ 4 Mount the shelf
 ```
-
-## Roadmap
-Things that are going to be added (I don't know in what order):
-- Date-based priority bumps.
-- Removing items
-- Pruning lists
-- Putting completed items at the bottom
-- TUI editor
-- Editing items
-- Getting the next item
-- Downwards (global) searches
