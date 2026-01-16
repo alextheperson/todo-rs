@@ -2,6 +2,7 @@ use crate::error::{CodeComponent, Error};
 use crate::todo::document::Document;
 use crate::{match_error, match_result, propagate};
 
+use std::fs::DirEntry;
 use std::{fs, path::Path, path::PathBuf};
 
 pub fn has_todo_list(path: &Path) -> Result<bool, Error> {
@@ -48,40 +49,15 @@ pub fn search_down(path: &PathBuf) -> Result<Vec<PathBuf>, Error> {
 
             for item in contents {
                 if let Ok(item) = item {
-                    let metadata = match fs::metadata(item.path()) {
-                        Ok(val) => val,
-                        Err(_) => {
-                            continue;
-                        }
-                    };
-
-                    let file_type = metadata.file_type();
-
-                    if file_type.is_symlink() {
+                    if !folder_filter(&item) {
                         continue;
                     }
 
-                    /*
-                    Exclude directories like `.local` or `.config`. Otherwise, the search takes a really
-                    long time. I should come up with a better heuristic at some point.
-                    */
-                    if !(item.file_name() == ".todo")
-                        && item
-                            .file_name()
-                            .into_string()
-                            .unwrap_or("".to_string()) // Don't love this, but it works
-                            .starts_with(".")
-                    {
-                        continue;
-                    }
-
-                    if file_type.is_dir() {
-                        lists.append(&mut match_error!(
-                            search_down(&item.path()),
-                            CodeComponent::FileSearcher,
-                            format!("Could not read dir at path '{}'", item.path().display())
-                        ));
-                    }
+                    lists.append(&mut match_error!(
+                        search_down(&item.path()),
+                        CodeComponent::FileSearcher,
+                        format!("Could not read dir at path '{}'", item.path().display())
+                    ));
                 }
             }
 
@@ -151,4 +127,36 @@ pub fn find_list(name: &String, down: bool) -> Result<Document, Error> {
         CodeComponent::FileSearcher,
         format!("No list called '#{name}'")
     ))
+}
+
+pub fn folder_filter(item: &DirEntry) -> bool {
+    // Ignore files
+    match item.file_type() {
+        Ok(file_type) => {
+            if !file_type.is_dir() {
+                return false;
+            };
+        }
+        Err(_) => {
+            return false;
+        }
+    };
+
+    // Ignore directories with bad names
+    match item.file_name().into_string() {
+        Ok(name) => {
+            if name == "" || name.starts_with(".") {
+                return false;
+            } else if name == "node_modules" {
+                // Ignore directories that won't have anything
+                // and will slow it down (e.g. packages)
+                return false;
+            }
+        }
+        Err(_) => {
+            return false;
+        }
+    }
+
+    return true;
 }
