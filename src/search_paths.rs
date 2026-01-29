@@ -89,7 +89,7 @@ pub fn search_down(path: &PathBuf) -> Result<Vec<PathBuf>, Error> {
             if match_error!(
                 has_todo_list(path),
                 CodeComponent::FileSearcher,
-                format!("Could not chech for '.todo' at path '{}'.", path.display())
+                format!("Could not check for '.todo' at path '{}'.", path.display())
             ) {
                 lists.push(path.clone());
             }
