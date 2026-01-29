@@ -107,3 +107,11 @@ This will render out as:
 ├ □ 2 (13-Jun-2026) Replant the garden
 ╰ ▣ 4 Mount the shelf
 ```
+
+### Linking Lists
+You can create a file that links to a list stored in a different directory (for example if you want to keep files in a synced directory).
+If a `.todo` starts with `->`, todo-rs will look for a todo list at the path after the arrow. For example,
+```
+-> /home/user/
+```
+Will make the document behave as if it were the `.todo` file at `/home/user/.todo`. You can still edit the file, and it will edit the original file.

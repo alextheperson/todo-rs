@@ -9,10 +9,13 @@ use crate::todo::list;
 use crate::todo::list::TodoList;
 use crate::{match_error, match_option, match_result, propagate};
 
+use std::fs::canonicalize;
+use std::path::PathBuf;
+
 #[derive(Debug, Clone)]
 pub struct Document {
     pub name: String,
-    pub path: std::path::PathBuf,
+    pub path: PathBuf,
     pub priority: i32,
     pub date: Option<Date>,
     pub items: list::List,
@@ -20,7 +23,8 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn from(file: String, path: std::path::PathBuf) -> Result<Document, Error> {
+    /// Parse the list from a string. *Not* from a path
+    pub fn from(file: String, path: PathBuf) -> Result<Document, Error> {
         let lines = file.lines();
 
         let mut name = "Unnamed Todo List".to_string();
@@ -101,23 +105,58 @@ impl Document {
         })
     }
 
-    pub fn from_path(path: &std::path::PathBuf) -> Result<Document, Error> {
-        let mut normalized_path = match_result!(
-            std::fs::canonicalize(&path),
-            CodeComponent::DocumentParser,
-            format!("Could not normalize the path '{}'.", path.display())
-        );
-        normalized_path.push(".todo");
+    pub fn from_path(path: &PathBuf) -> Result<Document, Error> {
+        let mut document_path = path.clone();
+        let mut content;
+        let mut redirect_counter = 0;
+        let max_iterations = 1024;
+        loop {
+            let mut normalized_path = match_result!(
+                canonicalize(&document_path),
+                CodeComponent::DocumentParser,
+                format!(
+                    "Could not normalize the path '{}'.",
+                    document_path.display()
+                )
+            );
+            normalized_path.push(".todo");
 
-        let content = match_result!(
-            std::fs::read_to_string(&normalized_path),
-            CodeComponent::DocumentParser,
-            format!(
-                "Could not read from the path '{path}'.",
-                path = normalized_path.display()
-            )
-        );
-        Document::from(content, path.clone())
+            content = match_result!(
+                std::fs::read_to_string(&normalized_path),
+                CodeComponent::DocumentParser,
+                format!(
+                    "Could not read from the path '{path}'.",
+                    path = normalized_path.display()
+                )
+            );
+
+            if redirect_counter >= max_iterations {
+                return Err(propagate!(
+                    CodeComponent::DocumentParser,
+                    format!(
+                        "Too many redirects (max: {max_iterations}) when trying to evaluate path '{}'. Final path: '{}'",
+                        path.display(),
+                        document_path.display()
+                    )
+                ));
+            }
+
+            if content.starts_with("->") {
+                let target_path = PathBuf::from(content[2..].trim());
+                let normalized_target = match_result!(
+                    canonicalize(&target_path),
+                    CodeComponent::DocumentParser,
+                    format!("Could not normalize the path '{}'", target_path.display())
+                );
+                document_path = document_path.join(normalized_target);
+            } else {
+                break;
+            }
+
+            redirect_counter += 1;
+        }
+
+        Document::from(content, document_path.clone())
     }
 
     pub fn to_string(&self) -> String {

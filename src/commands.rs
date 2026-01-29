@@ -80,6 +80,10 @@ FILE FORMAT
     │- [x] A completed todo                                                      │
     │- [a] An archived todo item (hidden by default)                             │
     └────────────────────────────────────────────────────────────────────────────┘
+
+    * You can link to another list with the syntax \"-> path/to/file\".
+      Relative and absolute paths are accepted, and edits to the file will be
+      saved at the file that it is linked to.
                 ",
         )
         .arg(file_path!("Specify an alternate path to open the TUI in."))
