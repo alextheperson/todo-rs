@@ -76,11 +76,12 @@ pub fn search_down(path: &PathBuf) -> Result<Vec<PathBuf>, Error> {
                     }
 
                     if file_type.is_dir() {
-                        lists.append(&mut match_error!(
-                            search_down(&item.path()),
-                            CodeComponent::FileSearcher,
-                            format!("Could not read dir at path '{}'", item.path().display())
-                        ));
+                        match search_down(&item.path()) {
+                            Ok(mut child_search) => lists.append(&mut child_search),
+                            Err(_) => {
+                                continue;
+                            }
+                        }
                     }
                 }
             }
