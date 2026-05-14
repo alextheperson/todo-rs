@@ -7,6 +7,7 @@ use crate::todo::document::Document;
 use crate::todo::item::Item;
 use crate::todo::list::TodoList;
 use crate::todo::path::ItemPath;
+use crate::tui;
 use crate::{match_error, match_result, propagate, search_paths};
 
 use std::fs;
@@ -540,4 +541,14 @@ pub fn move_item(
             err
         )),
     }
+}
+
+pub fn enter_tui() -> Result<(), Error> {
+    match_error!(
+        tui::start_tui(),
+        CodeComponent::Executor,
+        "Could not start the TUI.".to_string()
+    );
+
+    Ok(())
 }

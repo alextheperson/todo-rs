@@ -17,6 +17,7 @@ pub trait TodoList {
     fn format_overview(&self, lines: Vec<bool>) -> Result<OutputBuffer, Error>;
     fn prune(&mut self);
     fn remove_by_path(&mut self, path: &ItemPath) -> Result<Item, Error>;
+    fn get_item_by_indices(&mut self, indices: Vec<usize>) -> &mut Item;
 }
 
 impl TodoList for List {
@@ -251,5 +252,15 @@ impl TodoList for List {
         }
 
         Ok(output)
+    }
+
+    fn get_item_by_indices(&mut self, indices: Vec<usize>) -> &mut Item {
+        if indices.len() == 1 {
+            &mut self[indices[0]]
+        } else {
+            self[indices[0]]
+                .items
+                .get_item_by_indices(indices.into_iter().skip(1).collect::<Vec<usize>>())
+        }
     }
 }

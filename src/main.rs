@@ -9,6 +9,7 @@ mod error;
 mod output;
 mod search_paths;
 mod todo;
+mod tui;
 mod version;
 
 use crate::command_executors::*;
@@ -121,7 +122,7 @@ fn match_commands(matches: clap::ArgMatches) -> Result<(), Error> {
             )),
             sub_matches.get_flag("down2"),
         ),
-        _ => panic!("The TUI editor has not been implemented yet."),
+        _ => enter_tui(),
     }
 }
 
